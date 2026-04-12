@@ -1,0 +1,33 @@
+.panel {
+  display: grid;
+  gap: 1rem;
+  max-width: 42rem;
+  padding: 1rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+
+.panel-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.result {
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  color: #fff;
+}
+
+.ok {
+  background: #15803d;
+}
+
+.error {
+  background: #b91c1c;
+}
+
+.info {
+  margin: 0;
+  color: #0369a1;
+}

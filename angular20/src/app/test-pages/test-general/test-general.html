@@ -1,0 +1,14 @@
+<h2>General test page</h2>
+<h5><i>{{versionString}}</i></h5>
+<div class="panel">
+  <div class="panel-title">Backend status</div>
+  <button mat-flat-button color="primary" (click)="refreshStatus()">Refresh</button>
+
+  @if (loading) {
+    <p class="info">Loading from backend...</p>
+  } @else if (okStatus) {
+    <p class="result" [class.ok]="okStatus.isOk" [class.error]="!okStatus.isOk">
+      isOk: {{ okStatus.isOk }} | val: {{ okStatus.val }} | error: {{ okStatus.error || 'none' }}
+    </p>
+  }
+</div>
