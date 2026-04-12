@@ -2,12 +2,65 @@
 ##################################################
 
 
+################################################## auth
+POST {{baseUrl}}/api/auth/login
+Content-type: application/json
+
+{
+   "identifier": "abc",
+   "password": "abc"
+}
+#####
+POST {{baseUrl}}/api/auth/register
+Content-type: application/json
+
+{
+   "userName": "abc",
+   "email": "abc",
+   "password": "abc"
+}
+#####
+
 ################################################## health
 GET {{baseUrl}}/health
 #####
 
 ################################################## test
 GET {{baseUrl}}/test
+#####
+
+################################################## tours
+DELETE {{baseUrl}}/api/tours/1
+#####
+GET {{baseUrl}}/api/tours
+#####
+GET {{baseUrl}}/api/tours/1
+#####
+POST {{baseUrl}}/api/tours
+Content-type: application/json
+
+{
+   "name": "abc",
+   "description": "abc",
+   "from": "abc",
+   "to": "abc",
+   "transportType": "abc",
+   "distanceKm": 1,
+   "estimatedTimeMinutes": 1
+}
+#####
+PUT {{baseUrl}}/api/tours/1
+Content-type: application/json
+
+{
+   "name": "abc",
+   "description": "abc",
+   "from": "abc",
+   "to": "abc",
+   "transportType": "abc",
+   "distanceKm": 1,
+   "estimatedTimeMinutes": 1
+}
 #####
 
 ################################################## Values
