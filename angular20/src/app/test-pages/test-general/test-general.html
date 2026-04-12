@@ -6,8 +6,21 @@
   <div class="actions">
     <button mat-flat-button color="primary" (click)="refreshStatus()">Refresh status</button>
     <button mat-flat-button color="primary" (click)="refreshTours()">Refresh tours</button>
+    <button mat-flat-button color="primary" (click)="refreshSearch()">Refresh search</button>
     <button mat-flat-button color="primary" (click)="createTour()">Create tour</button>
     <button mat-flat-button color="primary" (click)="createLog()">Create log</button>
+  </div>
+
+  <div class="search-row">
+    <input
+      class="search-input"
+      type="search"
+      [value]="searchTerm"
+      (input)="searchTerm = $any($event.target).value"
+      placeholder="Search tours, logs, stats"
+      (keyup.enter)="searchTours()"
+    />
+    <button mat-flat-button color="primary" (click)="searchTours()">Search</button>
   </div>
 
   @if (actionMessage) {
@@ -23,6 +36,23 @@
   }
 
   <div class="section-title">Tours</div>
+  @if (loadingSearch) {
+    <p class="info">Running search...</p>
+  } @else if (searchResults.length === 0) {
+    <p class="info">No tours matched the current filter.</p>
+  } @else {
+    <div class="list">
+      @for (tour of searchResults; track tour.id ?? tour.name) {
+        <button class="list-item" (click)="selectTour(tour.id)" [class.active]="tour.id === selectedTourId">
+          <div class="list-title">{{ tour.name }}</div>
+          <small>{{ tour.from || '?' }} → {{ tour.to || '?' }} | {{ tour.transportType || 'unknown' }}</small>
+          <small>Popularity {{ tour.popularity ?? 0 }} | Child-friendly {{ tour.childFriendlinessScore ?? 0 }} | {{ tour.matchSummary }}</small>
+        </button>
+      }
+    </div>
+  }
+
+  <div class="section-title">Tour list refresh</div>
   @if (loadingTours) {
     <p class="info">Loading tours...</p>
   } @else {

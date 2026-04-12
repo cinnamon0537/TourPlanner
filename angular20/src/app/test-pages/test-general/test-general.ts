@@ -1,9 +1,27 @@
 import { Component, inject, OnInit } from '@angular/core';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { AuthResponse, AuthService, LoginRequest, RegisterRequest, OkStatus, TourLogRequest, TourLogResponse, TourLogsService, TourRequest, TourResponse, ToursService, ValuesService } from '../../swagger';
 import { version, versionDateString } from '../../shared/version';
 import { MatButtonModule } from '@angular/material/button';
 import { ApiSessionService } from '../../shared/api-session.service';
+import { environment } from '../../../environments/environment';
+
+interface TourSearchResponse {
+  id?: number;
+  userId?: number;
+  name?: string | null;
+  description?: string | null;
+  from?: string | null;
+  to?: string | null;
+  transportType?: string | null;
+  distanceKm?: number;
+  estimatedTimeMinutes?: number;
+  createdAt?: string;
+  popularity?: number;
+  childFriendlinessScore?: number;
+  matchSummary?: string | null;
+}
 
 @Component({
   selector: 'app-test-general',
@@ -15,6 +33,7 @@ import { ApiSessionService } from '../../shared/api-session.service';
   styleUrl: './test-general.scss'
 })
 export class TestGeneral implements OnInit {
+  private http = inject(HttpClient);
   private authService = inject(AuthService);
   private toursService = inject(ToursService);
   private tourLogsService = inject(TourLogsService);
@@ -29,12 +48,15 @@ export class TestGeneral implements OnInit {
   okStatus: OkStatus | null = null;
   authMessage = 'Signing in...';
   tours: TourResponse[] = [];
+  searchResults: TourSearchResponse[] = [];
   logs: TourLogResponse[] = [];
   selectedTourId: number | null = null;
   loading = false;
   loadingTours = false;
   loadingLogs = false;
+  loadingSearch = false;
   actionMessage = '';
+  searchTerm = '';
   versionString = `v${version} [${versionDateString}]`;
 
   async ngOnInit(): Promise<void> {
@@ -45,6 +67,7 @@ export class TestGeneral implements OnInit {
     await this.ensureDemoSession();
     this.refreshStatus();
     await this.refreshTours();
+    await this.refreshSearch();
   }
 
   refreshStatus(): void {
@@ -87,6 +110,29 @@ export class TestGeneral implements OnInit {
     }
   }
 
+  async refreshSearch(): Promise<void> {
+    this.loadingSearch = true;
+    try {
+      const params = this.searchTerm.trim() ? new HttpParams().set('q', this.searchTerm.trim()) : undefined;
+      this.searchResults = await firstValueFrom(this.http.get<TourSearchResponse[]>(`${environment.apiRoot}/api/tours/search`, { params }));
+
+      if (this.searchResults.length > 0 && !this.searchResults.some(x => x.id === this.selectedTourId)) {
+        this.selectedTourId = this.searchResults[0].id ?? null;
+        await this.refreshLogs();
+      }
+
+      if (this.searchResults.length === 0) {
+        this.logs = [];
+      }
+    } finally {
+      this.loadingSearch = false;
+    }
+  }
+
+  async searchTours(): Promise<void> {
+    await this.refreshSearch();
+  }
+
   async refreshLogs(): Promise<void> {
     if (this.selectedTourId == null) {
       this.logs = [];
@@ -114,6 +160,7 @@ export class TestGeneral implements OnInit {
 
     this.actionMessage = `Created tour ${created.name ?? 'new tour'}`;
     await this.refreshTours();
+    await this.refreshSearch();
     if (created.id == null) {
       throw new Error('Backend did not return a tour id.');
     }
@@ -139,6 +186,7 @@ export class TestGeneral implements OnInit {
 
     this.actionMessage = `Created log ${created.id ?? 'new log'}`;
     await this.refreshLogs();
+    await this.refreshSearch();
   }
 
   selectTour(id?: number): void {
