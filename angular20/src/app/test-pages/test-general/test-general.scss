@@ -13,6 +13,45 @@
   font-weight: 600;
 }
 
+.section-title {
+  margin-top: 0.75rem;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.line {
+  color: #334155;
+}
+
+.list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.list-item {
+  display: grid;
+  gap: 0.15rem;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.list-item.active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px #2563eb inset;
+}
+
+.list-item.static {
+  cursor: default;
+}
+
 .result {
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;

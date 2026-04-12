@@ -2,7 +2,17 @@
 <h5><i>{{versionString}}</i></h5>
 <div class="panel">
   <div class="panel-title">Backend status</div>
-  <button mat-flat-button color="primary" (click)="refreshStatus()">Refresh</button>
+  <div class="line">{{ authMessage }}</div>
+  <div class="actions">
+    <button mat-flat-button color="primary" (click)="refreshStatus()">Refresh status</button>
+    <button mat-flat-button color="primary" (click)="refreshTours()">Refresh tours</button>
+    <button mat-flat-button color="primary" (click)="createTour()">Create tour</button>
+    <button mat-flat-button color="primary" (click)="createLog()">Create log</button>
+  </div>
+
+  @if (actionMessage) {
+    <p class="info">{{ actionMessage }}</p>
+  }
 
   @if (loading) {
     <p class="info">Loading from backend...</p>
@@ -10,5 +20,33 @@
     <p class="result" [class.ok]="okStatus.isOk" [class.error]="!okStatus.isOk">
       isOk: {{ okStatus.isOk }} | val: {{ okStatus.val }} | error: {{ okStatus.error || 'none' }}
     </p>
+  }
+
+  <div class="section-title">Tours</div>
+  @if (loadingTours) {
+    <p class="info">Loading tours...</p>
+  } @else {
+    <div class="list">
+      @for (tour of tours; track tour.id ?? tour.name) {
+        <button class="list-item" (click)="selectTour(tour.id)" [class.active]="tour.id === selectedTourId">
+          <div>{{ tour.name }}</div>
+          <small>{{ tour.from || '?' }} → {{ tour.to || '?' }}</small>
+        </button>
+      }
+    </div>
+  }
+
+  <div class="section-title">Tour Logs</div>
+  @if (loadingLogs) {
+    <p class="info">Loading logs...</p>
+  } @else {
+    <div class="list">
+      @for (log of logs; track log.id ?? log.createdAt) {
+        <div class="list-item static">
+          <div>{{ log.comment }}</div>
+          <small>{{ log.difficulty }} | {{ log.totalDistanceKm }} km | {{ log.totalTimeMinutes }} min | rating {{ log.rating ?? '-' }}</small>
+        </div>
+      }
+    </div>
   }
 </div>
