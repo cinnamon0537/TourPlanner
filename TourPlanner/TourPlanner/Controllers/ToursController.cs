@@ -14,10 +14,12 @@ namespace TourPlanner.Controllers;
 public class ToursController : ControllerBase
 {
   private readonly TourPlannerDbContext _db;
+  private readonly IRoutePlanningService _routePlanningService;
 
-  public ToursController(TourPlannerDbContext db)
+  public ToursController(TourPlannerDbContext db, IRoutePlanningService routePlanningService)
   {
     _db = db;
+    _routePlanningService = routePlanningService;
   }
 
   [HttpGet]
@@ -31,6 +33,12 @@ public class ToursController : ControllerBase
       .ToListAsync(cancellationToken);
 
     return Ok(tours);
+  }
+
+  [HttpPost("plan")]
+  public async Task<ActionResult<TourPlanResponse>> Plan(TourPlanRequest request, CancellationToken cancellationToken)
+  {
+    return Ok(await _routePlanningService.PlanAsync(request, cancellationToken));
   }
 
   [HttpGet("search")]
@@ -140,6 +148,61 @@ public class ToursController : ControllerBase
     _db.Tours.Remove(tour);
     await _db.SaveChangesAsync(cancellationToken);
     return NoContent();
+  }
+
+  [HttpGet("export")]
+  public async Task<ActionResult<TourExportResponse>> Export(CancellationToken cancellationToken)
+  {
+    var userId = GetUserId();
+    var tours = await _db.Tours
+      .Include(x => x.TourLogs)
+      .Where(x => x.UserId == userId)
+      .OrderByDescending(x => x.CreatedAt)
+      .Select(x => new TourExportTourResponse(
+        x.Id,
+        x.Name,
+        x.Description,
+        x.From,
+        x.To,
+        x.TransportType,
+        x.DistanceKm,
+        x.EstimatedTimeMinutes,
+        x.CreatedAt,
+        x.TourLogs
+          .OrderByDescending(log => log.LogDateTime)
+          .Select(log => new TourExportLogResponse(log.LogDateTime, log.Comment, log.Difficulty.ToString().ToLowerInvariant(), log.TotalDistanceKm, log.TotalTimeMinutes, log.Rating, log.CreatedAt))
+          .ToList()))
+      .ToListAsync(cancellationToken);
+
+    return Ok(new TourExportResponse(tours));
+  }
+
+  [HttpPost("import")]
+  public async Task<ActionResult<object>> Import(TourImportRequest request, CancellationToken cancellationToken)
+  {
+    var userId = GetUserId();
+    var importedTours = 0;
+
+    foreach (var item in request.Tours)
+    {
+      var tour = new Tour
+      {
+        UserId = userId,
+        Name = item.Name,
+        Description = item.Description,
+        From = item.From,
+        To = item.To,
+        TransportType = item.TransportType,
+        DistanceKm = item.DistanceKm,
+        EstimatedTimeMinutes = item.EstimatedTimeMinutes,
+      };
+
+      _db.Tours.Add(tour);
+      importedTours++;
+    }
+
+    await _db.SaveChangesAsync(cancellationToken);
+    return Ok(new { importedTours });
   }
 
   private int GetUserId()

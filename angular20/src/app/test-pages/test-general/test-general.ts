@@ -1,7 +1,8 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, inject, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { AuthResponse, AuthService, LoginRequest, RegisterRequest, OkStatus, TourLogRequest, TourLogResponse, TourLogsService, TourRequest, TourResponse, ToursService, ValuesService } from '../../swagger';
+import * as L from 'leaflet';
+import { AuthResponse, AuthService, RegisterRequest, OkStatus, TourLogRequest, TourLogResponse, TourLogsService, TourRequest, TourResponse, ToursService, ValuesService } from '../../swagger';
 import { version, versionDateString } from '../../shared/version';
 import { MatButtonModule } from '@angular/material/button';
 import { ApiSessionService } from '../../shared/api-session.service';
@@ -23,22 +24,62 @@ interface TourSearchResponse {
   matchSummary?: string | null;
 }
 
+interface TourRoutePointResponse {
+  latitude: number;
+  longitude: number;
+}
+
+interface TourPlanResponse {
+  from: string;
+  to: string;
+  transportType: string;
+  distanceKm: number;
+  estimatedTimeMinutes: number;
+  geometry: TourRoutePointResponse[];
+  source: string;
+}
+
+interface TourExportResponse {
+  tours: Array<{
+    id: number;
+    name: string;
+    description?: string | null;
+    from?: string | null;
+    to?: string | null;
+    transportType?: string | null;
+    distanceKm: number;
+    estimatedTimeMinutes: number;
+    createdAt: string;
+    logs: Array<{
+      logDateTime: string;
+      comment?: string | null;
+      difficulty: string;
+      totalDistanceKm: number;
+      totalTimeMinutes: number;
+      rating?: number | null;
+      createdAt: string;
+    }>;
+  }>;
+}
+
 @Component({
   selector: 'app-test-general',
   standalone: true,
-  imports: [
-    MatButtonModule,
-  ],
+  imports: [MatButtonModule],
   templateUrl: './test-general.html',
   styleUrl: './test-general.scss'
 })
-export class TestGeneral implements OnInit {
+export class TestGeneral implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
+
   private http = inject(HttpClient);
   private authService = inject(AuthService);
   private toursService = inject(ToursService);
   private tourLogsService = inject(TourLogsService);
   private valuesService = inject(ValuesService);
   private session = inject(ApiSessionService);
+  private map?: L.Map;
+  private routeLayer?: L.Polyline;
   private readonly demoUser: RegisterRequest = {
     userName: 'frontend-demo',
     email: 'frontend-demo@tourplanner.local',
@@ -55,12 +96,30 @@ export class TestGeneral implements OnInit {
   loadingTours = false;
   loadingLogs = false;
   loadingSearch = false;
+  routeLoading = false;
   actionMessage = '';
   searchTerm = '';
+  routeFrom = 'Vienna';
+  routeTo = 'Graz';
+  routeTransportType = 'walking';
+  routeMessage = 'Plan a route to preview it on the map.';
+  plannedRoute: TourPlanResponse | null = null;
+  exportMessage = '';
+  exportJson = '';
+  importJson = '';
+  importMessage = '';
   versionString = `v${version} [${versionDateString}]`;
 
   async ngOnInit(): Promise<void> {
     await this.bootstrap();
+  }
+
+  ngAfterViewInit(): void {
+    queueMicrotask(() => this.renderMap());
+  }
+
+  ngOnDestroy(): void {
+    this.map?.remove();
   }
 
   async bootstrap(): Promise<void> {
@@ -68,6 +127,7 @@ export class TestGeneral implements OnInit {
     this.refreshStatus();
     await this.refreshTours();
     await this.refreshSearch();
+    await this.planRoute();
   }
 
   refreshStatus(): void {
@@ -105,6 +165,7 @@ export class TestGeneral implements OnInit {
       this.tours = await firstValueFrom(this.toursService.apiToursGet());
       this.selectedTourId ??= this.tours[0]?.id ?? null;
       await this.refreshLogs();
+      await this.syncPlannerWithSelection();
     } finally {
       this.loadingTours = false;
     }
@@ -124,6 +185,8 @@ export class TestGeneral implements OnInit {
       if (this.searchResults.length === 0) {
         this.logs = [];
       }
+
+      await this.syncPlannerWithSelection();
     } finally {
       this.loadingSearch = false;
     }
@@ -147,15 +210,73 @@ export class TestGeneral implements OnInit {
     }
   }
 
+  async planRoute(): Promise<void> {
+    this.routeLoading = true;
+    try {
+      this.plannedRoute = await firstValueFrom(this.http.post<TourPlanResponse>(`${environment.apiRoot}/api/tours/plan`, {
+        from: this.routeFrom,
+        to: this.routeTo,
+        transportType: this.routeTransportType,
+      }));
+      this.routeMessage = `Planned via ${this.plannedRoute.source} with ${this.plannedRoute.distanceKm} km and ${this.plannedRoute.estimatedTimeMinutes} min.`;
+      this.routeFrom = this.plannedRoute.from;
+      this.routeTo = this.plannedRoute.to;
+      this.routeTransportType = this.plannedRoute.transportType;
+      this.renderMap();
+    } catch (err) {
+      this.routeMessage = `Route planning failed: ${(err as Error).message}`;
+      this.plannedRoute = null;
+      this.renderMap();
+    } finally {
+      this.routeLoading = false;
+    }
+  }
+
+  async exportTours(): Promise<void> {
+    const exportPayload = await firstValueFrom(this.http.get<TourExportResponse>(`${environment.apiRoot}/api/tours/export`));
+    this.exportJson = JSON.stringify(exportPayload, null, 2);
+    this.exportMessage = `Exported ${exportPayload.tours.length} tour(s).`;
+  }
+
+  async importTours(): Promise<void> {
+    if (!this.importJson.trim()) {
+      this.importMessage = 'Paste JSON first.';
+      return;
+    }
+
+    const payload = JSON.parse(this.importJson) as { tours?: unknown[] };
+    const response = await firstValueFrom(this.http.post<{ importedTours: number }>(`${environment.apiRoot}/api/tours/import`, payload));
+    this.importMessage = `Imported ${response.importedTours} tour(s).`;
+    await this.refreshTours();
+    await this.refreshSearch();
+  }
+
+  useSampleImport(): void {
+    this.importJson = JSON.stringify({
+      tours: [
+        {
+          name: 'Imported Sample Tour',
+          description: 'Added through the import JSON payload',
+          from: 'Wien',
+          to: 'St. Pölten',
+          transportType: 'walking',
+          distanceKm: 42,
+          estimatedTimeMinutes: 540,
+        },
+      ],
+    }, null, 2);
+  }
+
   async createTour(): Promise<void> {
+    const plan = this.plannedRoute ?? await this.planRouteForCreation();
     const created = await firstValueFrom(this.toursService.apiToursPost({
       name: `Demo Tour ${this.tours.length + 1}`,
       description: 'Created from the Angular demo',
-      from: 'Start',
-      to: 'Finish',
-      transportType: 'walking',
-      distanceKm: 4.5,
-      estimatedTimeMinutes: 60,
+      from: plan?.from ?? this.routeFrom,
+      to: plan?.to ?? this.routeTo,
+      transportType: plan?.transportType ?? this.routeTransportType,
+      distanceKm: plan?.distanceKm ?? 4.5,
+      estimatedTimeMinutes: plan?.estimatedTimeMinutes ?? 60,
     } as TourRequest));
 
     this.actionMessage = `Created tour ${created.name ?? 'new tour'}`;
@@ -167,6 +288,7 @@ export class TestGeneral implements OnInit {
 
     this.selectedTourId = created.id;
     await this.refreshLogs();
+    await this.syncPlannerWithSelection();
   }
 
   async createLog(): Promise<void> {
@@ -196,6 +318,62 @@ export class TestGeneral implements OnInit {
 
     this.selectedTourId = id;
     void this.refreshLogs();
+    void this.syncPlannerWithSelection();
+  }
+
+  private async planRouteForCreation(): Promise<TourPlanResponse | null> {
+    try {
+      return await firstValueFrom(this.http.post<TourPlanResponse>(`${environment.apiRoot}/api/tours/plan`, {
+        from: this.routeFrom,
+        to: this.routeTo,
+        transportType: this.routeTransportType,
+      }));
+    } catch {
+      return null;
+    }
+  }
+
+  private async syncPlannerWithSelection(): Promise<void> {
+    const selected = this.getSelectedTour();
+    if (!selected?.from || !selected?.to) {
+      return;
+    }
+
+    this.routeFrom = selected.from;
+    this.routeTo = selected.to;
+    this.routeTransportType = selected.transportType || 'walking';
+    await this.planRoute();
+  }
+
+  private getSelectedTour(): TourResponse | TourSearchResponse | null {
+    return this.searchResults.find(x => x.id === this.selectedTourId)
+      ?? this.tours.find(x => x.id === this.selectedTourId)
+      ?? null;
+  }
+
+  private renderMap(): void {
+    if (!this.mapHost) {
+      return;
+    }
+
+    if (!this.map) {
+      this.map = L.map(this.mapHost.nativeElement, { zoomControl: true }).setView([48.2, 16.37], 11);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+      }).addTo(this.map);
+    }
+
+    this.routeLayer?.remove();
+
+    const geometry = this.plannedRoute?.geometry ?? [];
+    if (geometry.length === 0) {
+      return;
+    }
+
+    const latLngs = geometry.map(point => [point.latitude, point.longitude] as [number, number]);
+    this.routeLayer = L.polyline(latLngs, { color: '#2563eb', weight: 5 }).addTo(this.map);
+    this.map.fitBounds(this.routeLayer.getBounds(), { padding: [24, 24] });
   }
 
   private applySession(response: AuthResponse): void {

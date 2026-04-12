@@ -15,7 +15,7 @@ public class ToursControllerTests
     db.Users.Add(new AppUser { Id = 1, UserName = "alice", Email = "alice@example.com", PasswordHash = "x" });
     await db.SaveChangesAsync();
 
-    var controller = TestSupport.WithUser(new ToursController(db), 1);
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
     var result = await controller.Create(new TourRequest { Name = "Morning Ride", DistanceKm = 12, EstimatedTimeMinutes = 45 }, CancellationToken.None);
 
     Assert.That(result.Result, Is.TypeOf<CreatedAtActionResult>());
@@ -34,7 +34,7 @@ public class ToursControllerTests
       new Tour { UserId = 2, Name = "Bob Tour", DistanceKm = 8, EstimatedTimeMinutes = 30 });
     await db.SaveChangesAsync();
 
-    var controller = TestSupport.WithUser(new ToursController(db), 1);
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
     var response = await controller.GetAll(CancellationToken.None);
     Assert.That(response.Result, Is.TypeOf<OkObjectResult>());
     var payload = (IEnumerable<TourResponse>)((OkObjectResult)response.Result!).Value!;
@@ -53,7 +53,7 @@ public class ToursControllerTests
     db.Tours.Add(new Tour { Id = 10, UserId = 2, Name = "Bob Tour", DistanceKm = 8, EstimatedTimeMinutes = 30 });
     await db.SaveChangesAsync();
 
-    var controller = TestSupport.WithUser(new ToursController(db), 1);
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
     var response = await controller.GetById(10, CancellationToken.None);
 
     Assert.That(response.Result, Is.TypeOf<NotFoundResult>());
@@ -67,7 +67,7 @@ public class ToursControllerTests
     db.Tours.Add(new Tour { Id = 10, UserId = 1, Name = "Old", DistanceKm = 8, EstimatedTimeMinutes = 30 });
     await db.SaveChangesAsync();
 
-    var controller = TestSupport.WithUser(new ToursController(db), 1);
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
     var result = await controller.Update(10, new TourRequest { Name = "New", DistanceKm = 15, EstimatedTimeMinutes = 60 }, CancellationToken.None);
 
     Assert.That(result, Is.TypeOf<NoContentResult>());
@@ -82,7 +82,7 @@ public class ToursControllerTests
     db.Tours.Add(new Tour { Id = 10, UserId = 1, Name = "To delete", DistanceKm = 8, EstimatedTimeMinutes = 30 });
     await db.SaveChangesAsync();
 
-    var controller = TestSupport.WithUser(new ToursController(db), 1);
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
     var result = await controller.Delete(10, CancellationToken.None);
 
     Assert.That(result, Is.TypeOf<NoContentResult>());
@@ -99,7 +99,7 @@ public class ToursControllerTests
     db.TourLogs.Add(new TourLog { TourId = 10, Comment = "Forest was lovely", Difficulty = DifficultyLevel.Easy, TotalDistanceKm = 8, TotalTimeMinutes = 30 });
     await db.SaveChangesAsync();
 
-    var controller = TestSupport.WithUser(new ToursController(db), 1);
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
     var response = await controller.Search("forest", CancellationToken.None);
     Assert.That(response.Result, Is.TypeOf<OkObjectResult>());
     var payload = (IEnumerable<TourSearchResponse>)((OkObjectResult)response.Result!).Value!;
@@ -119,7 +119,7 @@ public class ToursControllerTests
       new TourLog { TourId = 10, Comment = "Nice again", Difficulty = DifficultyLevel.Moderate, TotalDistanceKm = 8, TotalTimeMinutes = 30 });
     await db.SaveChangesAsync();
 
-    var controller = TestSupport.WithUser(new ToursController(db), 1);
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
     var response = await controller.Search(null, CancellationToken.None);
     Assert.That(response.Result, Is.TypeOf<OkObjectResult>());
     var payload = (IEnumerable<TourSearchResponse>)((OkObjectResult)response.Result!).Value!;
@@ -127,5 +127,59 @@ public class ToursControllerTests
     var item = payload!.Single();
     Assert.That(item.Popularity, Is.EqualTo(2));
     Assert.That(item.ChildFriendlinessScore, Is.InRange(0, 100));
+  }
+
+  [Test]
+  public async Task Plan_returns_route_geometry()
+  {
+    await using var db = TestSupport.CreateDbContext();
+    db.Users.Add(new AppUser { Id = 1, UserName = "alice", Email = "alice@example.com", PasswordHash = "x" });
+    await db.SaveChangesAsync();
+
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
+    var response = await controller.Plan(new TourPlanRequest { From = "Vienna", To = "Graz", TransportType = "walking" }, CancellationToken.None);
+
+    Assert.That(response.Result, Is.TypeOf<OkObjectResult>());
+  }
+
+  [Test]
+  public async Task Export_returns_owned_tours_with_logs()
+  {
+    await using var db = TestSupport.CreateDbContext();
+    db.Users.Add(new AppUser { Id = 1, UserName = "alice", Email = "alice@example.com", PasswordHash = "x" });
+    db.Tours.Add(new Tour { Id = 10, UserId = 1, Name = "Export me", DistanceKm = 8, EstimatedTimeMinutes = 30 });
+    db.TourLogs.Add(new TourLog { TourId = 10, Comment = "Nice", Difficulty = DifficultyLevel.Easy, TotalDistanceKm = 8, TotalTimeMinutes = 30 });
+    await db.SaveChangesAsync();
+
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
+    var response = await controller.Export(CancellationToken.None);
+
+    Assert.That(response.Result, Is.TypeOf<OkObjectResult>());
+  }
+
+  [Test]
+  public async Task Import_creates_tours_from_payload()
+  {
+    await using var db = TestSupport.CreateDbContext();
+    db.Users.Add(new AppUser { Id = 1, UserName = "alice", Email = "alice@example.com", PasswordHash = "x" });
+    await db.SaveChangesAsync();
+
+    var controller = TestSupport.WithUser(new ToursController(db, TestSupport.CreateRoutePlanningService()), 1);
+    var response = await controller.Import(new TourImportRequest
+    {
+      Tours = [new TourImportItem
+      {
+        Name = "Imported",
+        Description = "From test",
+        From = "A",
+        To = "B",
+        TransportType = "walking",
+        DistanceKm = 9,
+        EstimatedTimeMinutes = 20,
+      }]
+    }, CancellationToken.None);
+
+    Assert.That(response.Result, Is.TypeOf<OkObjectResult>());
+    Assert.That(await db.Tours.CountAsync(), Is.EqualTo(1));
   }
 }

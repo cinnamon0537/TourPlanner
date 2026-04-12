@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using TourPlanner.Dtos.Tours;
 using TourPlanner.Data;
 using TourPlanner.Models;
 using TourPlanner.Services;
@@ -43,6 +44,8 @@ public static class TestSupport
 
   public static ITokenService CreateTokenService() => new FakeTokenService();
 
+  public static IRoutePlanningService CreateRoutePlanningService() => new FakeRoutePlanningService();
+
   public static IReadOnlyList<ValidationResult> Validate(object model)
   {
     var results = new List<ValidationResult>();
@@ -53,5 +56,18 @@ public static class TestSupport
   private sealed class FakeTokenService : ITokenService
   {
     public string CreateToken(AppUser user) => $"token-{user.Id}-{user.UserName}";
+  }
+
+  private sealed class FakeRoutePlanningService : IRoutePlanningService
+  {
+    public Task<TourPlanResponse> PlanAsync(TourPlanRequest request, CancellationToken cancellationToken)
+      => Task.FromResult(new TourPlanResponse(
+        request.From,
+        request.To,
+        request.TransportType,
+        12.3,
+        45,
+        [new TourRoutePointResponse(48.2, 16.3), new TourRoutePointResponse(48.21, 16.31)],
+        "test"));
   }
 }

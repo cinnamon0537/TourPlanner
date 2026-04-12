@@ -9,6 +9,9 @@
     <button mat-flat-button color="primary" (click)="refreshSearch()">Refresh search</button>
     <button mat-flat-button color="primary" (click)="createTour()">Create tour</button>
     <button mat-flat-button color="primary" (click)="createLog()">Create log</button>
+    <button mat-flat-button color="primary" (click)="exportTours()">Export tours</button>
+    <button mat-flat-button color="primary" (click)="useSampleImport()">Sample import</button>
+    <button mat-flat-button color="primary" (click)="importTours()">Import tours</button>
   </div>
 
   <div class="search-row">
@@ -21,6 +24,39 @@
       (keyup.enter)="searchTours()"
     />
     <button mat-flat-button color="primary" (click)="searchTours()">Search</button>
+  </div>
+
+  <div class="planner-grid">
+    <label>
+      <span>From</span>
+      <input class="search-input" type="text" [value]="routeFrom" (input)="routeFrom = $any($event.target).value" />
+    </label>
+    <label>
+      <span>To</span>
+      <input class="search-input" type="text" [value]="routeTo" (input)="routeTo = $any($event.target).value" />
+    </label>
+    <label>
+      <span>Transport</span>
+      <input class="search-input" type="text" [value]="routeTransportType" (input)="routeTransportType = $any($event.target).value" />
+    </label>
+    <button mat-flat-button color="primary" (click)="planRoute()">Plan route</button>
+  </div>
+
+  @if (routeLoading) {
+    <p class="info">Planning route...</p>
+  } @else {
+    <p class="info">{{ routeMessage }}</p>
+  }
+
+  <div class="map-shell">
+    <div #mapHost class="map-host"></div>
+    <div class="map-meta">
+      @if (plannedRoute) {
+        <div><strong>Distance:</strong> {{ plannedRoute.distanceKm }} km</div>
+        <div><strong>Time:</strong> {{ plannedRoute.estimatedTimeMinutes }} min</div>
+        <div><strong>Source:</strong> {{ plannedRoute.source }}</div>
+      }
+    </div>
   </div>
 
   @if (actionMessage) {
@@ -65,6 +101,16 @@
       }
     </div>
   }
+
+  <div class="section-title">Import / Export</div>
+  @if (exportMessage) {
+    <p class="info">{{ exportMessage }}</p>
+  }
+  <textarea class="json-box" [value]="exportJson" readonly></textarea>
+  @if (importMessage) {
+    <p class="info">{{ importMessage }}</p>
+  }
+  <textarea class="json-box" [value]="importJson" (input)="importJson = $any($event.target).value" placeholder="Paste import JSON here"></textarea>
 
   <div class="section-title">Tour Logs</div>
   @if (loadingLogs) {

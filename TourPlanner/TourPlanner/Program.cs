@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using Microsoft.OpenApi;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -64,6 +65,8 @@ builder.Services.AddCors(options => options.AddPolicy(
 builder.Services.AddDbContext<TourPlannerDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
+builder.Services.Configure<OpenRouteServiceSettings>(builder.Configuration.GetSection(OpenRouteServiceSettings.SectionName));
+builder.Services.AddHttpClient<IRoutePlanningService, OpenRouteServiceRoutePlanningService>();
 builder.Services.AddRestClientGenerator(options => options
   .SetFolder(restClientFolder)
   .SetFilename(restClientFilename)

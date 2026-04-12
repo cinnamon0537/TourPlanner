@@ -31,6 +31,20 @@
   align-items: center;
 }
 
+.planner-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.planner-grid label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
 .search-input {
   flex: 1 1 18rem;
   min-width: 0;
@@ -39,6 +53,36 @@
   border-radius: 0.5rem;
   background: #fff;
   color: #0f172a;
+}
+
+.map-shell {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.map-host {
+  min-height: 320px;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.map-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: #334155;
+}
+
+.json-box {
+  width: 100%;
+  min-height: 10rem;
+  padding: 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  font-family: monospace;
+  font-size: 0.85rem;
 }
 
 .line {
