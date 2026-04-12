@@ -1,4 +1,7 @@
 <Solution>
   <Project Path="TourPlanner/TourPlanner.csproj" />
+  <Project Path="TourPlanner.Domain/TourPlanner.Domain.csproj" />
+  <Project Path="TourPlanner.Application/TourPlanner.Application.csproj" />
+  <Project Path="TourPlanner.Infrastructure/TourPlanner.Infrastructure.csproj" />
   <Project Path="TourPlanner.Tests/TourPlanner.Tests.csproj" />
 </Solution>
