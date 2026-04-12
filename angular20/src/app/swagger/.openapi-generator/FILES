@@ -6,6 +6,7 @@ api.module.ts
 api/api.ts
 api/auth.service.ts
 api/status.service.ts
+api/tourLogs.service.ts
 api/tours.service.ts
 api/values.service.ts
 configuration.ts
@@ -18,6 +19,8 @@ model/models.ts
 model/okStatus.ts
 model/registerRequest.ts
 model/statusResponse.ts
+model/tourLogRequest.ts
+model/tourLogResponse.ts
 model/tourRequest.ts
 model/tourResponse.ts
 param.ts

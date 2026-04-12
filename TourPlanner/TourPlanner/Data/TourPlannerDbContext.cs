@@ -11,6 +11,7 @@ public class TourPlannerDbContext : DbContext
 
   public DbSet<AppUser> Users => Set<AppUser>();
   public DbSet<Tour> Tours => Set<Tour>();
+  public DbSet<TourLog> TourLogs => Set<TourLog>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder)
   {
@@ -37,6 +38,18 @@ public class TourPlannerDbContext : DbContext
       entity.HasOne(x => x.User)
         .WithMany(x => x.Tours)
         .HasForeignKey(x => x.UserId)
+        .OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<TourLog>(entity =>
+    {
+      entity.ToTable("TourLogs");
+      entity.HasKey(x => x.Id);
+      entity.Property(x => x.Comment).HasMaxLength(2000);
+      entity.Property(x => x.Difficulty).HasConversion<string>().HasMaxLength(20);
+      entity.HasOne(x => x.Tour)
+        .WithMany(x => x.TourLogs)
+        .HasForeignKey(x => x.TourId)
         .OnDelete(DeleteBehavior.Cascade);
     });
   }

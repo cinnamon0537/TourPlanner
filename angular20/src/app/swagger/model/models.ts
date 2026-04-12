@@ -3,5 +3,7 @@ export * from './loginRequest';
 export * from './okStatus';
 export * from './registerRequest';
 export * from './statusResponse';
+export * from './tourLogRequest';
+export * from './tourLogResponse';
 export * from './tourRequest';
 export * from './tourResponse';

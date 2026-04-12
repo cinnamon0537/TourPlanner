@@ -13,4 +13,6 @@ public class Tour
   public double DistanceKm { get; set; }
   public int EstimatedTimeMinutes { get; set; }
   public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+  public ICollection<TourLog> TourLogs { get; set; } = [];
 }

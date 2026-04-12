@@ -32,9 +32,15 @@ GET {{baseUrl}}/test
 ################################################## tours
 DELETE {{baseUrl}}/api/tours/1
 #####
+DELETE {{baseUrl}}/api/tours/1/logs/1
+#####
 GET {{baseUrl}}/api/tours
 #####
 GET {{baseUrl}}/api/tours/1
+#####
+GET {{baseUrl}}/api/tours/1/logs
+#####
+GET {{baseUrl}}/api/tours/1/logs/1
 #####
 POST {{baseUrl}}/api/tours
 Content-type: application/json
@@ -49,6 +55,18 @@ Content-type: application/json
    "estimatedTimeMinutes": 1
 }
 #####
+POST {{baseUrl}}/api/tours/1/logs
+Content-type: application/json
+
+{
+   "logDateTime": "abc",
+   "comment": "abc",
+   "difficulty": "abc",
+   "totalDistanceKm": 1,
+   "totalTimeMinutes": 1,
+   "rating": 1
+}
+#####
 PUT {{baseUrl}}/api/tours/1
 Content-type: application/json
 
@@ -60,6 +78,18 @@ Content-type: application/json
    "transportType": "abc",
    "distanceKm": 1,
    "estimatedTimeMinutes": 1
+}
+#####
+PUT {{baseUrl}}/api/tours/1/logs/1
+Content-type: application/json
+
+{
+   "logDateTime": "abc",
+   "comment": "abc",
+   "difficulty": "abc",
+   "totalDistanceKm": 1,
+   "totalTimeMinutes": 1,
+   "rating": 1
 }
 #####
 
