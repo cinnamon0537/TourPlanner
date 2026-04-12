@@ -86,5 +86,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.Map("/", () => Results.Redirect("/swagger"));
 app.MapControllers();
+using (var scope = app.Services.CreateScope())
+{
+  var db = scope.ServiceProvider.GetRequiredService<TourPlannerDbContext>();
+  db.Database.EnsureCreated();
+}
 Console.WriteLine($"Ready for clients at {DateTime.Now:HH:mm:ss} ...");
 app.Run();
