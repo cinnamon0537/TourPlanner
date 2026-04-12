@@ -15,13 +15,11 @@ string swaggerVersion = "v1";
 string swaggerTitle = "TourPlanner";
 string restClientFolder = Environment.CurrentDirectory;
 string restClientFilename = "_requests.http";
-string sqliteFallbackConnectionString = "Data Source=TourPlanner-dev.db";
 
 var builder = WebApplication.CreateBuilder(args);
 string connectionString = builder.Configuration.GetConnectionString("TourPlanner") ?? "Host=localhost;Port=5432;Database=TourPlanner;Username=postgres;Password=postgres";
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>() ?? new JwtSettings();
 
-var usePostgres = true;
 try
 {
   using var probe = new NpgsqlConnection(connectionString);
@@ -29,7 +27,7 @@ try
 }
 catch
 {
-  usePostgres = false;
+  throw new InvalidOperationException("PostgreSQL database is not reachable.");
 }
 
 builder.Services.AddControllers();
@@ -58,16 +56,7 @@ builder.Services.AddCors(options => options.AddPolicy(
   corsKey,
   x => x.SetIsOriginAllowed(_ => true).AllowAnyMethod().AllowAnyHeader().AllowCredentials()
 ));
-builder.Services.AddDbContext<TourPlannerDbContext>(options =>
-{
-  if (usePostgres)
-  {
-    options.UseNpgsql(connectionString);
-    return;
-  }
-
-  options.UseSqlite(sqliteFallbackConnectionString);
-});
+builder.Services.AddDbContext<TourPlannerDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
 builder.Services.AddRestClientGenerator(options => options
@@ -97,10 +86,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.Map("/", () => Results.Redirect("/swagger"));
 app.MapControllers();
-using (var scope = app.Services.CreateScope())
-{
-  var db = scope.ServiceProvider.GetRequiredService<TourPlannerDbContext>();
-  db.Database.EnsureCreated();
-}
 Console.WriteLine($"Ready for clients at {DateTime.Now:HH:mm:ss} ...");
 app.Run();
