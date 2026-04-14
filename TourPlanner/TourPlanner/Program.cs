@@ -70,6 +70,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors(corsKey);
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.Map("/", () => Results.Redirect("/swagger"));

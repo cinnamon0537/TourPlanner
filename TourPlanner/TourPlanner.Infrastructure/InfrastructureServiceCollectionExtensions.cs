@@ -19,6 +19,7 @@ public static class InfrastructureServiceCollectionExtensions
     services.Configure<OpenRouteServiceSettings>(configuration.GetSection(OpenRouteServiceSettings.SectionName));
     services.AddDbContext<TourPlannerDbContext>(options => options.UseNpgsql(connectionString));
     services.AddScoped<ITokenService, JwtTokenService>();
+    services.AddScoped<ITourImageStorageService, FileSystemTourImageStorageService>();
     services.AddScoped<IPasswordHasher<AppUser>, PasswordHasher<AppUser>>();
     services.AddHttpClient<IRoutePlanningService, OpenRouteServiceRoutePlanningService>();
 

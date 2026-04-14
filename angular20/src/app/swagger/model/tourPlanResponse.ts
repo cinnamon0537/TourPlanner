@@ -7,18 +7,16 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { TourRoutePointResponse } from './tourRoutePointResponse';
 
 
-export interface TourResponse { 
-    id?: number;
-    userId?: number;
-    name?: string | null;
-    description?: string | null;
-    image?: string | null;
+export interface TourPlanResponse { 
     from?: string | null;
     to?: string | null;
     transportType?: string | null;
     distanceKm?: number;
     estimatedTimeMinutes?: number;
-    createdAt?: string;
+    geometry?: Array<TourRoutePointResponse> | null;
+    source?: string | null;
 }
+

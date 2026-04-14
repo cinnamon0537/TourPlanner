@@ -42,6 +42,10 @@ GET {{baseUrl}}/api/tours/1/logs
 #####
 GET {{baseUrl}}/api/tours/1/logs/1
 #####
+GET {{baseUrl}}/api/tours/export
+#####
+GET {{baseUrl}}/api/tours/search?q=abc
+#####
 POST {{baseUrl}}/api/tours
 Content-type: application/json
 
@@ -65,6 +69,31 @@ Content-type: application/json
    "totalDistanceKm": 1,
    "totalTimeMinutes": 1,
    "rating": 1
+}
+#####
+POST {{baseUrl}}/api/tours/import
+Content-type: application/json
+
+{
+   "tours": 
+   [{
+      "name": "abc",
+      "description": "abc",
+      "from": "abc",
+      "to": "abc",
+      "transporttype": "abc",
+      "distancekm": 1,
+      "estimatedtimeminutes": 1
+   }]
+}
+#####
+POST {{baseUrl}}/api/tours/plan
+Content-type: application/json
+
+{
+   "from": "abc",
+   "to": "abc",
+   "transportType": "abc"
 }
 #####
 PUT {{baseUrl}}/api/tours/1

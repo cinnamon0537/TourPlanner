@@ -12,10 +12,10 @@
 export interface TourRequest { 
     name: string;
     description?: string | null;
+    image?: string | null;
     from?: string | null;
     to?: string | null;
     transportType?: string | null;
     distanceKm?: number;
     estimatedTimeMinutes?: number;
 }
-

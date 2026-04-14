@@ -1,10 +1,12 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TourPlanner.Data;
 using TourPlanner.Dtos.Tours;
 using TourPlanner.Models;
+using TourPlanner.Services;
 
 namespace TourPlanner.Controllers;
 
@@ -15,11 +17,13 @@ public class ToursController : ControllerBase
 {
   private readonly TourPlannerDbContext _db;
   private readonly IRoutePlanningService _routePlanningService;
+  private readonly ITourImageStorageService _tourImageStorageService;
 
-  public ToursController(TourPlannerDbContext db, IRoutePlanningService routePlanningService)
+  public ToursController(TourPlannerDbContext db, IRoutePlanningService routePlanningService, ITourImageStorageService tourImageStorageService)
   {
     _db = db;
     _routePlanningService = routePlanningService;
+    _tourImageStorageService = tourImageStorageService;
   }
 
   [HttpGet]
@@ -47,10 +51,23 @@ public class ToursController : ControllerBase
     var userId = GetUserId();
     var query = q?.Trim();
 
-    var tours = await _db.Tours
+    var toursQuery = _db.Tours
       .Include(x => x.TourLogs)
-      .Where(x => x.UserId == userId)
-      .ToListAsync(cancellationToken);
+      .Where(x => x.UserId == userId);
+
+    if (!string.IsNullOrWhiteSpace(query))
+    {
+      var pattern = $"%{query}%";
+      toursQuery = toursQuery.Where(tour =>
+        EF.Functions.Like(tour.Name, pattern) ||
+        EF.Functions.Like(tour.Description ?? string.Empty, pattern) ||
+        EF.Functions.Like(tour.From ?? string.Empty, pattern) ||
+        EF.Functions.Like(tour.To ?? string.Empty, pattern) ||
+        EF.Functions.Like(tour.TransportType ?? string.Empty, pattern) ||
+        tour.TourLogs.Any(log => EF.Functions.Like(log.Comment ?? string.Empty, pattern)));
+    }
+
+    var tours = await toursQuery.ToListAsync(cancellationToken);
 
     var results = tours
       .Select(tour => new
@@ -69,6 +86,7 @@ public class ToursController : ControllerBase
         x.Tour.UserId,
         x.Tour.Name,
         x.Tour.Description,
+        x.Tour.Image,
         x.Tour.From,
         x.Tour.To,
         x.Tour.TransportType,
@@ -100,6 +118,7 @@ public class ToursController : ControllerBase
       UserId = userId,
       Name = request.Name,
       Description = request.Description,
+      Image = request.Image,
       From = request.From,
       To = request.To,
       TransportType = request.TransportType,
@@ -111,6 +130,19 @@ public class ToursController : ControllerBase
     await _db.SaveChangesAsync(cancellationToken);
 
     return CreatedAtAction(nameof(GetById), new { id = tour.Id }, ToResponse(tour));
+  }
+
+  [HttpPost("image")]
+  [RequestSizeLimit(10_000_000)]
+  public async Task<ActionResult<object>> UploadImage([FromForm] IFormFile file, CancellationToken cancellationToken)
+  {
+    if (file == null || file.Length == 0)
+    {
+      return BadRequest("Empty file.");
+    }
+
+    var image = await _tourImageStorageService.SaveAsync(file.OpenReadStream(), file.FileName, cancellationToken);
+    return Ok(new { image });
   }
 
   [HttpPut("{id:int}")]
@@ -125,6 +157,7 @@ public class ToursController : ControllerBase
 
     tour.Name = request.Name;
     tour.Description = request.Description;
+    tour.Image = request.Image;
     tour.From = request.From;
     tour.To = request.To;
     tour.TransportType = request.TransportType;
@@ -162,6 +195,7 @@ public class ToursController : ControllerBase
         x.Id,
         x.Name,
         x.Description,
+        x.Image,
         x.From,
         x.To,
         x.TransportType,
@@ -190,6 +224,7 @@ public class ToursController : ControllerBase
         UserId = userId,
         Name = item.Name,
         Description = item.Description,
+        Image = item.Image,
         From = item.From,
         To = item.To,
         TransportType = item.TransportType,
@@ -209,7 +244,7 @@ public class ToursController : ControllerBase
     => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("Missing user id claim."));
 
   private static TourResponse ToResponse(Tour tour)
-    => new(tour.Id, tour.UserId, tour.Name, tour.Description, tour.From, tour.To, tour.TransportType, tour.DistanceKm, tour.EstimatedTimeMinutes, tour.CreatedAt);
+    => new(tour.Id, tour.UserId, tour.Name, tour.Description, tour.Image, tour.From, tour.To, tour.TransportType, tour.DistanceKm, tour.EstimatedTimeMinutes, tour.CreatedAt);
 
   private static int ComputeSearchScore(Tour tour, string? query)
   {

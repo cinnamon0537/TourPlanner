@@ -8,6 +8,10 @@ export class ApiSessionService {
     return localStorage.getItem(tokenKey);
   }
 
+  hasToken(): boolean {
+    return this.getToken() != null;
+  }
+
   setToken(token: string): void {
     localStorage.setItem(tokenKey, token);
   }

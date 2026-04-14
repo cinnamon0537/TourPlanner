@@ -5,6 +5,7 @@ public record TourSearchResponse(
   int UserId,
   string Name,
   string? Description,
+  string? Image,
   string? From,
   string? To,
   string? TransportType,

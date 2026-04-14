@@ -6,6 +6,7 @@ public record TourExportTourResponse(
   int Id,
   string Name,
   string? Description,
+  string? Image,
   string? From,
   string? To,
   string? TransportType,

@@ -7,11 +7,11 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
+import { TourExportLogResponse } from './tourExportLogResponse';
 
 
-export interface TourResponse { 
+export interface TourExportTourResponse { 
     id?: number;
-    userId?: number;
     name?: string | null;
     description?: string | null;
     image?: string | null;
@@ -21,4 +21,5 @@ export interface TourResponse {
     distanceKm?: number;
     estimatedTimeMinutes?: number;
     createdAt?: string;
+    logs?: Array<TourExportLogResponse> | null;
 }

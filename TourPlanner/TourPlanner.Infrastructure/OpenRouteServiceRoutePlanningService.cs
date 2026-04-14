@@ -20,16 +20,21 @@ public class OpenRouteServiceRoutePlanningService : IRoutePlanningService
 
   public async Task<TourPlanResponse> PlanAsync(TourPlanRequest request, CancellationToken cancellationToken)
   {
-    if (string.IsNullOrWhiteSpace(_settings.ApiKey))
+    try
     {
-      return BuildFallbackPlan(request);
+      if (!string.IsNullOrWhiteSpace(_settings.ApiKey))
+      {
+        var from = await GeocodeAsync(request.From, cancellationToken);
+        var to = await GeocodeAsync(request.To, cancellationToken);
+        return await GetDirectionsAsync(request, from, to, cancellationToken);
+      }
+
+      return await BuildPublicFallbackPlanAsync(request, cancellationToken);
     }
-
-    var from = await GeocodeAsync(request.From, cancellationToken);
-    var to = await GeocodeAsync(request.To, cancellationToken);
-    var geometry = await GetDirectionsAsync(request, from, to, cancellationToken);
-
-    return geometry;
+    catch
+    {
+      return BuildStraightFallbackPlan(request);
+    }
   }
 
   private async Task<TourPlanResponse> GetDirectionsAsync(TourPlanRequest request, (double Latitude, double Longitude) from, (double Latitude, double Longitude) to, CancellationToken cancellationToken)
@@ -72,6 +77,53 @@ public class OpenRouteServiceRoutePlanningService : IRoutePlanningService
     return (coord[1].GetDouble(), coord[0].GetDouble());
   }
 
+  private async Task<(double Latitude, double Longitude)> GeocodePublicAsync(string query, CancellationToken cancellationToken)
+  {
+    var url = $"https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q={Uri.EscapeDataString(query)}";
+    using var request = new HttpRequestMessage(HttpMethod.Get, url);
+    request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    request.Headers.UserAgent.ParseAdd("TourPlanner/1.0");
+
+    using var response = await _httpClient.SendAsync(request, cancellationToken);
+    response.EnsureSuccessStatusCode();
+    using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+    var first = doc.RootElement[0];
+    return (double.Parse(first.GetProperty("lat").GetString()!, CultureInfo.InvariantCulture), double.Parse(first.GetProperty("lon").GetString()!, CultureInfo.InvariantCulture));
+  }
+
+  private async Task<TourPlanResponse> BuildPublicFallbackPlanAsync(TourPlanRequest request, CancellationToken cancellationToken)
+  {
+    var from = await GeocodePublicAsync(request.From, cancellationToken);
+    var to = await GeocodePublicAsync(request.To, cancellationToken);
+    return await GetOsrmDirectionsAsync(request, from, to, cancellationToken);
+  }
+
+  private async Task<TourPlanResponse> GetOsrmDirectionsAsync(TourPlanRequest request, (double Latitude, double Longitude) from, (double Latitude, double Longitude) to, CancellationToken cancellationToken)
+  {
+    var profile = NormalizeProfile(request.TransportType) switch
+    {
+      "cycling-regular" => "bike",
+      _ => "foot",
+    };
+
+    var url = $"https://router.project-osrm.org/route/v1/{profile}/{from.Longitude.ToString(CultureInfo.InvariantCulture)},{from.Latitude.ToString(CultureInfo.InvariantCulture)};{to.Longitude.ToString(CultureInfo.InvariantCulture)},{to.Latitude.ToString(CultureInfo.InvariantCulture)}?overview=full&geometries=geojson";
+    using var response = await _httpClient.GetAsync(url, cancellationToken);
+    response.EnsureSuccessStatusCode();
+    using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+    var route = doc.RootElement.GetProperty("routes")[0];
+    var geometry = route.GetProperty("geometry").GetProperty("coordinates");
+
+    var points = geometry.EnumerateArray().Select(x => new TourRoutePointResponse(x[1].GetDouble(), x[0].GetDouble())).ToList();
+    return new TourPlanResponse(
+      request.From,
+      request.To,
+      request.TransportType,
+      Math.Round(route.GetProperty("distance").GetDouble() / 1000.0, 2),
+      (int)Math.Round(route.GetProperty("duration").GetDouble() / 60.0),
+      points,
+      "osrm-public");
+  }
+
   private static string NormalizeProfile(string transportType)
     => transportType.Trim().ToLowerInvariant() switch
     {
@@ -80,7 +132,7 @@ public class OpenRouteServiceRoutePlanningService : IRoutePlanningService
       _ => "foot-walking",
     };
 
-  private static TourPlanResponse BuildFallbackPlan(TourPlanRequest request)
+  private static TourPlanResponse BuildStraightFallbackPlan(TourPlanRequest request)
   {
     var from = HashCoordinate(request.From, -1);
     var to = HashCoordinate(request.To, 1);

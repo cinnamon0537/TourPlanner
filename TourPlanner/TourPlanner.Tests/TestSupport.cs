@@ -46,6 +46,8 @@ public static class TestSupport
 
   public static IRoutePlanningService CreateRoutePlanningService() => new FakeRoutePlanningService();
 
+  public static ITourImageStorageService CreateTourImageStorageService() => new FakeTourImageStorageService();
+
   public static IReadOnlyList<ValidationResult> Validate(object model)
   {
     var results = new List<ValidationResult>();
@@ -69,5 +71,11 @@ public static class TestSupport
         45,
         [new TourRoutePointResponse(48.2, 16.3), new TourRoutePointResponse(48.21, 16.31)],
         "test"));
+  }
+
+  private sealed class FakeTourImageStorageService : ITourImageStorageService
+  {
+    public Task<string> SaveAsync(Stream fileStream, string fileName, CancellationToken cancellationToken)
+      => Task.FromResult($"/uploads/tour-images/{fileName}");
   }
 }

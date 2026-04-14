@@ -9,7 +9,7 @@
  */
 
 
-export interface TourResponse { 
+export interface TourSearchResponse { 
     id?: number;
     userId?: number;
     name?: string | null;
@@ -21,4 +21,7 @@ export interface TourResponse {
     distanceKm?: number;
     estimatedTimeMinutes?: number;
     createdAt?: string;
+    popularity?: number;
+    childFriendlinessScore?: number;
+    matchSummary?: string | null;
 }

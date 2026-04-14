@@ -9,10 +9,8 @@
  */
 
 
-export interface TourResponse { 
-    id?: number;
-    userId?: number;
-    name?: string | null;
+export interface TourImportItem { 
+    name: string;
     description?: string | null;
     image?: string | null;
     from?: string | null;
@@ -20,5 +18,4 @@ export interface TourResponse {
     transportType?: string | null;
     distanceKm?: number;
     estimatedTimeMinutes?: number;
-    createdAt?: string;
 }

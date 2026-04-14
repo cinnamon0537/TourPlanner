@@ -8,6 +8,7 @@ public class TourRequest
   public string Name { get; set; } = string.Empty;
 
   public string? Description { get; set; }
+  public string? Image { get; set; }
   public string? From { get; set; }
   public string? To { get; set; }
   public string? TransportType { get; set; }
