@@ -86,12 +86,15 @@ import { DashboardFacadeService } from '../../core/services/dashboard-facade.ser
         <article class="detail-card">
           <div class="detail-header">
             <h4>Tour logs</h4>
-            <div class="actions">
-              <button mat-stroked-button (click)="facade.newLog()">New log</button>
-              <button mat-flat-button color="primary" (click)="facade.saveLog()">Save log</button>
+            <div class="actions" *ngIf="facade.hasSelectedTour">
+              <button mat-stroked-button (click)="facade.newLog()">Create new log</button>
+              <button mat-flat-button color="primary" (click)="facade.saveLog()">{{ facade.logDraft.id ? 'Update log' : 'Save log' }}</button>
               <button mat-stroked-button color="warn" (click)="facade.deleteLog()" [disabled]="!facade.logDraft.id">Delete</button>
             </div>
           </div>
+
+          <p class="hint" *ngIf="!facade.hasSelectedTour">Select a tour first to view or create logs.</p>
+          <p class="message log-message" *ngIf="facade.logMessage">{{ facade.logMessage }}</p>
 
           <div class="list compact" *ngIf="!facade.loadingLogs; else loadingLogs">
             <button class="list-item" *ngFor="let log of facade.logs" (click)="facade.selectLog(log.id)" [class.active]="log.id === facade.selectedLogId">
@@ -101,7 +104,11 @@ import { DashboardFacadeService } from '../../core/services/dashboard-facade.ser
           </div>
           <ng-template #loadingLogs><p class="muted">Loading logs...</p></ng-template>
 
-          <div class="form-grid log-form">
+          <ng-template #logSelectionPrompt>
+            <div class="hint">Select a tour first to create or edit logs.</div>
+          </ng-template>
+
+          <div class="form-grid log-form" *ngIf="facade.hasSelectedTour; else logSelectionPrompt">
             <label><span>Date/time</span><input class="input" [(ngModel)]="facade.logDraft.logDateTime" type="datetime-local" /></label>
             <label><span>Difficulty</span><input class="input" [(ngModel)]="facade.logDraft.difficulty" type="text" /></label>
             <label><span>Distance km</span><input class="input" [(ngModel)]="facade.logDraft.totalDistanceKm" type="number" step="0.1" min="0" /></label>
@@ -126,9 +133,10 @@ import { DashboardFacadeService } from '../../core/services/dashboard-facade.ser
     .list { display:grid; gap:.5rem; }
     .list.compact { max-height: 13rem; overflow:auto; padding-right:.25rem; }
     .list-item { display:grid; gap:.1rem; text-align:left; padding:.8rem .9rem; border:1px solid #cbd5e1; border-radius:.85rem; background:#fff; }
-    .list-item.active { border-color:#2563eb; box-shadow:0 0 0 1px #2563eb inset; }
+    .list-item.active { border-color:#2563eb; background:#eff6ff; box-shadow:0 0 0 1px #2563eb inset, 0 8px 18px rgba(37,99,235,0.12); }
     .message { margin:.25rem 0 .75rem; color:#0369a1; }
     .muted { color:#64748b; }
+    .hint { margin:0; padding:.7rem .85rem; border-radius:.75rem; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; }
     .form-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.75rem; }
     .form-grid label { display:grid; gap:.35rem; color:#334155; }
     .full { grid-column: 1 / -1; }

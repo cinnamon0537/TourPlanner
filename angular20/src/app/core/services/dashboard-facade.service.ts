@@ -1,4 +1,5 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { OkStatus, TourLogRequest, TourLogResponse, TourLogsService, TourRequest, TourResponse, ToursService, ValuesService } from '../../swagger';
@@ -34,6 +35,7 @@ export class DashboardFacadeService {
   loadingSearch = false;
   routeLoading = false;
   actionMessage = '';
+  logMessage = '';
   searchTerm = '';
   routeFrom = 'Vienna';
   routeTo = 'Graz';
@@ -142,6 +144,7 @@ export class DashboardFacadeService {
     this.selectedTourId = id;
     this.selectedLogId = null;
     this.loadTourDraftFromSelection();
+    this.logMessage = '';
     void this.refreshLogs();
     void this.syncPlannerWithSelection();
   }
@@ -152,6 +155,7 @@ export class DashboardFacadeService {
     this.logs = [];
     this.selectedLogId = null;
     this.logDraft = this.createBlankLogDraft();
+    this.logMessage = '';
   }
 
   async saveTour(): Promise<void> {
@@ -199,13 +203,19 @@ export class DashboardFacadeService {
   }
 
   newLog(): void {
+    if (!this.hasSelectedTour) {
+      this.logMessage = 'Select a tour first to create a log.';
+      return;
+    }
+
     this.selectedLogId = null;
     this.logDraft = this.createBlankLogDraft();
+    this.logMessage = 'Create a new log for the selected tour.';
   }
 
   async saveLog(): Promise<void> {
     if (this.selectedTourId == null) {
-      this.actionMessage = 'Select a tour first.';
+      this.logMessage = 'Select a tour first to add or edit a log.';
       return;
     }
 
@@ -218,16 +228,20 @@ export class DashboardFacadeService {
       rating: this.logDraft.rating ?? null,
     };
 
-    if (this.logDraft.id == null) {
-      const created = await firstValueFrom(this.tourLogsService.apiToursTourIdLogsPost(this.selectedTourId, payload));
-      this.selectedLogId = created.id ?? null;
-      this.actionMessage = `Created log ${created.id ?? 'new log'}`;
-    } else {
-      await firstValueFrom(this.tourLogsService.apiToursTourIdLogsIdPut(this.selectedTourId, this.logDraft.id, payload));
-      this.actionMessage = `Updated log ${this.logDraft.id}`;
-    }
+    try {
+      if (this.logDraft.id == null) {
+        const created = await firstValueFrom(this.tourLogsService.apiToursTourIdLogsPost(this.selectedTourId, payload));
+        this.selectedLogId = created.id ?? null;
+        this.logMessage = `Created log ${created.id ?? 'new log'} for the selected tour.`;
+      } else {
+        await firstValueFrom(this.tourLogsService.apiToursTourIdLogsIdPut(this.selectedTourId, this.logDraft.id, payload));
+        this.logMessage = `Updated log ${this.logDraft.id}.`;
+      }
 
-    await this.refreshLogs();
+      await this.refreshLogs();
+    } catch (err) {
+      this.logMessage = this.friendlyLogError(err);
+    }
   }
 
   async deleteLog(): Promise<void> {
@@ -236,7 +250,7 @@ export class DashboardFacadeService {
     }
 
     await firstValueFrom(this.tourLogsService.apiToursTourIdLogsIdDelete(this.selectedTourId, this.logDraft.id));
-    this.actionMessage = `Deleted log ${this.logDraft.id}`;
+    this.logMessage = `Deleted log ${this.logDraft.id}.`;
     this.newLog();
     await this.refreshLogs();
   }
@@ -430,5 +444,21 @@ export class DashboardFacadeService {
       totalTimeMinutes: selected.totalTimeMinutes ?? 0,
       rating: selected.rating ?? null,
     };
+  }
+
+  get hasSelectedTour(): boolean {
+    return this.selectedTourId != null;
+  }
+
+  private friendlyLogError(err: unknown): string {
+    if (err instanceof HttpErrorResponse) {
+      if (err.status === 0) return 'Cannot reach the backend right now.';
+      if (err.status === 400) return 'Please check the log fields. The date, difficulty, rating, and numbers must be valid.';
+      if (err.status === 401) return 'Your session expired. Please log in again.';
+      if (err.status === 404) return 'The selected tour or log was not found anymore.';
+      if (err.status >= 500) return 'The server had a problem while saving the log.';
+    }
+
+    return 'Could not save the log. Please try again.';
   }
 }
