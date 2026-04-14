@@ -134,7 +134,8 @@ public class ToursController : ControllerBase
 
   [HttpPost("image")]
   [RequestSizeLimit(10_000_000)]
-  public async Task<ActionResult<object>> UploadImage([FromForm] IFormFile file, CancellationToken cancellationToken)
+  [Consumes("multipart/form-data")]
+  public async Task<ActionResult<object>> UploadImage(IFormFile file, CancellationToken cancellationToken)
   {
     if (file == null || file.Length == 0)
     {
