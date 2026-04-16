@@ -22,3 +22,4 @@ export interface TourResponse {
     estimatedTimeMinutes?: number;
     createdAt?: string;
 }
+

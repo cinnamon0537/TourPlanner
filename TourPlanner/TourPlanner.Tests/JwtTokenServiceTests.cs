@@ -14,7 +14,7 @@ public class JwtTokenServiceTests
     {
       Issuer = "issuer",
       Audience = "audience",
-      Key = "change-this-key-at-least-32-characters-long",
+      Key = new string('a', 32),
       ExpiryMinutes = 60,
     }));
 
@@ -30,7 +30,10 @@ public class JwtTokenServiceTests
   [Test]
   public void CreateToken_creates_different_subject_for_different_users()
   {
-    var service = new JwtTokenService(Options.Create(new JwtSettings()));
+    var service = new JwtTokenService(Options.Create(new JwtSettings
+    {
+      Key = new string('b', 32),
+    }));
 
     var tokenOne = service.CreateToken(new AppUser { Id = 1, UserName = "one", Email = "one@example.com" });
     var tokenTwo = service.CreateToken(new AppUser { Id = 2, UserName = "two", Email = "two@example.com" });

@@ -25,3 +25,4 @@ export interface TourSearchResponse {
     childFriendlinessScore?: number;
     matchSummary?: string | null;
 }
+

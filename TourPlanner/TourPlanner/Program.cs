@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TourPlanner.Logging;
 using TourPlanner.Models;
 using TourPlanner.Infrastructure;
 
@@ -16,6 +17,10 @@ string restClientFilename = "_requests.http";
 
 var builder = WebApplication.CreateBuilder(args);
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>() ?? new JwtSettings();
+if (string.IsNullOrWhiteSpace(jwtSettings.Key))
+{
+  throw new InvalidOperationException("Missing Jwt:Key configuration. Set it via dotnet user-secrets.");
+}
 
 builder.Services.AddControllers().AddJsonOptions(options =>
 {
@@ -53,7 +58,8 @@ builder.Services.AddRestClientGenerator(options => options
   .SetAction($"swagger/{swaggerVersion}/swagger.json")
 );
 
-builder.Services.AddLogging(x => x.AddCustomFormatter());
+builder.Logging.ClearProviders();
+builder.Logging.AddTourPlannerLog4Net();
 
 var app = builder.Build();
 

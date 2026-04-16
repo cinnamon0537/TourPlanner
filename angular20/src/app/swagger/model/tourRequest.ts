@@ -19,3 +19,4 @@ export interface TourRequest {
     distanceKm?: number;
     estimatedTimeMinutes?: number;
 }
+

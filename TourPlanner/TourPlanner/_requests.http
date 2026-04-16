@@ -52,6 +52,7 @@ Content-type: application/json
 {
    "name": "abc",
    "description": "abc",
+   "image": "abc",
    "from": "abc",
    "to": "abc",
    "transportType": "abc",
@@ -71,6 +72,8 @@ Content-type: application/json
    "rating": 1
 }
 #####
+POST {{baseUrl}}/api/tours/image
+#####
 POST {{baseUrl}}/api/tours/import
 Content-type: application/json
 
@@ -79,6 +82,7 @@ Content-type: application/json
    [{
       "name": "abc",
       "description": "abc",
+      "image": "abc",
       "from": "abc",
       "to": "abc",
       "transporttype": "abc",
@@ -102,6 +106,7 @@ Content-type: application/json
 {
    "name": "abc",
    "description": "abc",
+   "image": "abc",
    "from": "abc",
    "to": "abc",
    "transportType": "abc",

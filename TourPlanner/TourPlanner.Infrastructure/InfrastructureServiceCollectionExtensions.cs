@@ -13,7 +13,11 @@ public static class InfrastructureServiceCollectionExtensions
 {
   public static IServiceCollection AddTourPlannerInfrastructure(this IServiceCollection services, IConfiguration configuration)
   {
-    var connectionString = configuration.GetConnectionString("TourPlanner") ?? "Host=localhost;Port=5432;Database=TourPlanner;Username=postgres;Password=postgres";
+    var connectionString = configuration.GetConnectionString("TourPlanner");
+    if (string.IsNullOrWhiteSpace(connectionString))
+    {
+      throw new InvalidOperationException("Missing ConnectionStrings:TourPlanner configuration. Set it via dotnet user-secrets.");
+    }
 
     services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
     services.Configure<OpenRouteServiceSettings>(configuration.GetSection(OpenRouteServiceSettings.SectionName));

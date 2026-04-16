@@ -23,3 +23,4 @@ export interface TourExportTourResponse {
     createdAt?: string;
     logs?: Array<TourExportLogResponse> | null;
 }
+
