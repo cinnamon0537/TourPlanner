@@ -1,5 +1,8 @@
 # TourPlanner
 
+## Repository
+- GitHub: https://github.com/cinnamon0537/TourPlanner
+
 ## Quick start
 1. Start PostgreSQL and make sure the default `TourPlanner` database is available.
 2. Start the backend:
