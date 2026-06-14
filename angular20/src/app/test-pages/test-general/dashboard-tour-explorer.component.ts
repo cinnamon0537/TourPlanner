@@ -2,165 +2,190 @@ import { Component, inject } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
+import { EditTourDialogComponent } from '../../components/edit-tour-dialog/edit-tour-dialog.component';
+import { NewTourDialogComponent } from '../../components/new-tour-dialog/new-tour-dialog.component';
 import { DashboardFacadeService } from '../../core/services/dashboard-facade.service';
+import { TourSearchItemDto } from '../../core/models/dashboard.types';
+import { TourResponse } from '../../swagger';
 
 @Component({
   selector: 'app-dashboard-tour-explorer',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, MatButtonModule],
+  imports: [NgFor, NgIf, FormsModule, MatButtonModule, MatIconModule],
   template: `
     <section class="panel">
       <div class="panel-title-row">
         <div>
           <p class="panel-kicker">Tours</p>
-          <h3>Explore, edit, and delete tours</h3>
+          <h3>Touren verwalten</h3>
         </div>
         <div class="actions">
           <button mat-stroked-button (click)="facade.refreshTours()">Refresh</button>
-          <button mat-flat-button color="primary" (click)="facade.newTour()">New tour</button>
+          <button mat-flat-button color="primary" (click)="openNewTourDialog()">
+            <mat-icon fontSet="material-icons-outlined">post_add</mat-icon>
+            Neue Tour
+          </button>
         </div>
       </div>
 
-      <div class="search-row">
-        <input class="input" type="search" [(ngModel)]="facade.searchTerm" placeholder="Search tours, logs, stats" (keyup.enter)="facade.refreshSearch()" />
-        <button mat-flat-button color="primary" (click)="facade.refreshSearch()">Search</button>
-      </div>
+      <label class="search-row">
+        <mat-icon fontSet="material-icons-outlined" class="search-icon">search</mat-icon>
+        <input
+          class="input search-input"
+          type="search"
+          [(ngModel)]="facade.searchTerm"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Touren durchsuchen..."
+        />
+        <button
+          *ngIf="facade.searchTerm"
+          type="button"
+          mat-icon-button
+          class="search-clear"
+          aria-label="Suche löschen"
+          (click)="clearSearch()"
+        >
+          <mat-icon fontSet="material-icons-outlined">close</mat-icon>
+        </button>
+      </label>
 
       <p class="message" *ngIf="facade.actionMessage">{{ facade.actionMessage }}</p>
 
-      <div class="columns">
-        <div>
-          <h4>Search results</h4>
-          <div class="list" *ngIf="!facade.loadingSearch; else loadingSearch">
-            <button class="list-item" *ngFor="let tour of facade.searchResults" (click)="facade.selectTour(tour.id)" [class.active]="tour.id === facade.selectedTourId">
-              <strong>{{ tour.name }}</strong>
-              <small>{{ tour.from || '?' }} → {{ tour.to || '?' }}</small>
-              <small>{{ tour.matchSummary }}</small>
-            </button>
-          </div>
-          <ng-template #loadingSearch><p class="muted">Running search...</p></ng-template>
+      <div class="tour-list-section">
+        <div class="list-header">
+          <h4>{{ facade.isSearching ? 'Suchergebnisse' : 'Alle Touren' }}</h4>
+          <span class="count" *ngIf="!facade.loadingTours && !facade.loadingSearch">
+            {{ facade.displayedTours.length }}
+          </span>
         </div>
 
-        <div>
-          <h4>All tours</h4>
-          <div class="list" *ngIf="!facade.loadingTours; else loadingTours">
-            <button class="list-item" *ngFor="let tour of facade.tours" (click)="facade.selectTour(tour.id)" [class.active]="tour.id === facade.selectedTourId">
+        <div class="list" *ngIf="!facade.loadingTours && !facade.loadingSearch; else loadingTours">
+          <div
+            class="list-item"
+            *ngFor="let tour of facade.displayedTours"
+            [class.active]="tour.id === facade.editingTourId"
+          >
+            <div class="list-item-content">
               <strong>{{ tour.name }}</strong>
               <small>{{ tour.from || '?' }} → {{ tour.to || '?' }}</small>
-            </button>
-          </div>
-          <ng-template #loadingTours><p class="muted">Loading tours...</p></ng-template>
-        </div>
-      </div>
-
-      <div class="detail-grid">
-        <article class="detail-card">
-          <div class="detail-header">
-            <h4>Tour details</h4>
-            <div class="actions">
-              <button mat-stroked-button (click)="facade.loadTourDraftFromSelection()">Reset</button>
-              <button mat-flat-button color="primary" (click)="facade.saveTour()">Save tour</button>
-              <button mat-stroked-button color="warn" (click)="facade.deleteTour()" [disabled]="!facade.tourDraft.id">Delete</button>
+              <small class="match" *ngIf="facade.isSearching && asSearchItem(tour)?.matchSummary">
+                {{ asSearchItem(tour)?.matchSummary }}
+              </small>
+            </div>
+            <div class="list-item-actions">
+              <button mat-stroked-button type="button" (click)="openEditTourDialog(tour.id)">
+                <mat-icon fontSet="material-icons-outlined">edit</mat-icon>
+                Ändern
+              </button>
+              <button
+                mat-icon-button
+                type="button"
+                class="list-item-delete"
+                aria-label="Tour löschen"
+                (click)="deleteTour($event, tour.id)"
+              >
+                <mat-icon fontSet="material-icons-outlined">delete</mat-icon>
+              </button>
             </div>
           </div>
 
-          <div class="form-grid">
-            <label><span>Name</span><input class="input" [(ngModel)]="facade.tourDraft.name" type="text" /></label>
-            <label class="full"><span>Image</span><input class="input" [(ngModel)]="facade.tourDraft.image" type="text" placeholder="https://... or uploaded path" /><input class="input file" type="file" accept="image/*" (change)="uploadImage($event)" /></label>
-            <label><span>From</span><input class="input" [(ngModel)]="facade.tourDraft.from" type="text" /></label>
-            <label><span>To</span><input class="input" [(ngModel)]="facade.tourDraft.to" type="text" /></label>
-            <label><span>Transport</span><input class="input" [(ngModel)]="facade.tourDraft.transportType" type="text" /></label>
-            <label><span>Distance km</span><input class="input" [(ngModel)]="facade.tourDraft.distanceKm" type="number" step="0.1" min="0" /></label>
-            <label><span>Minutes</span><input class="input" [(ngModel)]="facade.tourDraft.estimatedTimeMinutes" type="number" min="0" /></label>
-            <label class="full"><span>Description</span><textarea class="input area" [(ngModel)]="facade.tourDraft.description"></textarea></label>
-          </div>
+          <p class="muted empty-list" *ngIf="facade.displayedTours.length === 0">
+            {{ facade.isSearching ? 'Keine passenden Touren gefunden.' : 'Noch keine Touren vorhanden.' }}
+          </p>
+        </div>
 
-          <div class="preview" *ngIf="facade.tourDraft.image; else noImage">
-            <img [src]="facade.tourDraft.image" [alt]="facade.tourDraft.name || 'tour image'" />
-          </div>
-          <ng-template #noImage>
-            <div class="preview empty">No image set yet.</div>
-          </ng-template>
-        </article>
-
-        <article class="detail-card">
-          <div class="detail-header">
-            <h4>Tour logs</h4>
-            <div class="actions" *ngIf="facade.hasSelectedTour">
-              <button mat-stroked-button (click)="facade.newLog()">Create new log</button>
-              <button mat-flat-button color="primary" (click)="facade.saveLog()">{{ facade.logDraft.id ? 'Update log' : 'Save log' }}</button>
-              <button mat-stroked-button color="warn" (click)="facade.deleteLog()" [disabled]="!facade.logDraft.id">Delete</button>
-            </div>
-          </div>
-
-          <p class="hint" *ngIf="!facade.hasSelectedTour">Select a tour first to view or create logs.</p>
-          <p class="message log-message" *ngIf="facade.logMessage">{{ facade.logMessage }}</p>
-
-          <div class="list compact" *ngIf="!facade.loadingLogs; else loadingLogs">
-            <button class="list-item" *ngFor="let log of facade.logs" (click)="facade.selectLog(log.id)" [class.active]="log.id === facade.selectedLogId">
-              <strong>{{ log.comment || 'No comment' }}</strong>
-              <small>{{ log.difficulty }} | {{ log.totalDistanceKm }} km | {{ log.totalTimeMinutes }} min | rating {{ log.rating ?? '-' }}</small>
-            </button>
-          </div>
-          <ng-template #loadingLogs><p class="muted">Loading logs...</p></ng-template>
-
-          <ng-template #logSelectionPrompt>
-            <div class="hint">Select a tour first to create or edit logs.</div>
-          </ng-template>
-
-          <div class="form-grid log-form" *ngIf="facade.hasSelectedTour; else logSelectionPrompt">
-            <label><span>Date/time</span><input class="input" [(ngModel)]="facade.logDraft.logDateTime" type="datetime-local" /></label>
-            <label><span>Difficulty</span><input class="input" [(ngModel)]="facade.logDraft.difficulty" type="text" /></label>
-            <label><span>Distance km</span><input class="input" [(ngModel)]="facade.logDraft.totalDistanceKm" type="number" step="0.1" min="0" /></label>
-            <label><span>Minutes</span><input class="input" [(ngModel)]="facade.logDraft.totalTimeMinutes" type="number" min="1" /></label>
-            <label><span>Rating</span><input class="input" [(ngModel)]="facade.logDraft.rating" type="number" min="1" max="5" /></label>
-            <label class="full"><span>Comment</span><textarea class="input area" [(ngModel)]="facade.logDraft.comment"></textarea></label>
-          </div>
-        </article>
+        <ng-template #loadingTours>
+          <p class="muted">Touren werden geladen...</p>
+        </ng-template>
       </div>
     </section>
   `,
   styles: [`
     .panel { padding: 1.1rem 1.2rem; border-radius: 1rem; border: 1px solid #dbe2ea; background: rgba(255,255,255,0.85); box-shadow: 0 18px 40px rgba(15,23,42,0.05); }
-    .panel-title-row, .detail-header { display:flex; justify-content:space-between; align-items:end; gap:1rem; margin-bottom:1rem; }
+    .panel-title-row { display:flex; justify-content:space-between; align-items:end; gap:1rem; margin-bottom:1rem; }
     .panel-kicker { margin:0 0 .2rem; text-transform:uppercase; letter-spacing:.14em; font-size:.72rem; color:#64748b; }
     h3, h4 { margin:0; }
-    .search-row, .actions { display:flex; flex-wrap:wrap; gap:.75rem; }
-    .search-row { margin-bottom:.85rem; }
-    .columns { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; margin-bottom: 1rem; }
-    .detail-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 1rem; }
-    .detail-card { padding: .95rem 1rem; border:1px solid #dbe2ea; border-radius: .95rem; background:#fff; display:grid; gap: .9rem; }
+    .actions { display:flex; flex-wrap:wrap; gap:.75rem; }
+    .search-row { display:flex; align-items:center; gap:.5rem; margin-bottom:1rem; }
+    .search-icon { color:#64748b; flex-shrink:0; }
+    .search-input { flex:1; margin:0; }
+    .search-clear { flex-shrink:0; color:#64748b; }
+    .tour-list-section { margin-bottom:0; }
+    .list-header { display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
+    .count { font-size:.85rem; color:#64748b; background:#f1f5f9; padding:.2rem .55rem; border-radius:999px; }
     .list { display:grid; gap:.5rem; }
-    .list.compact { max-height: 13rem; overflow:auto; padding-right:.25rem; }
-    .list-item { display:grid; gap:.1rem; text-align:left; padding:.8rem .9rem; border:1px solid #cbd5e1; border-radius:.85rem; background:#fff; }
+    .list-item { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.75rem .9rem; border:1px solid #cbd5e1; border-radius:.85rem; background:#fff; }
     .list-item.active { border-color:#2563eb; background:#eff6ff; box-shadow:0 0 0 1px #2563eb inset, 0 8px 18px rgba(37,99,235,0.12); }
+    .list-item-content { display:grid; gap:.1rem; min-width:0; }
+    .list-item-content strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .match { color:#0369a1; }
+    .list-item-actions { display:flex; align-items:center; gap:.25rem; flex-shrink:0; }
+    .list-item-delete { color:#94a3b8; }
+    .list-item-delete:hover { color:#dc2626; background:#fef2f2; }
+    .empty-list { margin:.25rem 0 0; }
     .message { margin:.25rem 0 .75rem; color:#0369a1; }
     .muted { color:#64748b; }
-    .hint { margin:0; padding:.7rem .85rem; border-radius:.75rem; background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; }
-    .form-grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.75rem; }
-    .form-grid label { display:grid; gap:.35rem; color:#334155; }
-    .full { grid-column: 1 / -1; }
-    .input { width:100%; padding:.8rem .95rem; border:1px solid #cbd5e1; border-radius:.75rem; }
-    .file { padding:.65rem .95rem; background:#f8fafc; }
-    .area { min-height: 5.8rem; resize: vertical; }
-    .preview { min-height: 12rem; border:1px dashed #cbd5e1; border-radius:.9rem; overflow:hidden; display:grid; place-items:center; background:#f8fafc; }
-    .preview img { width:100%; height:100%; object-fit:cover; }
-    .preview.empty { color:#64748b; }
-    .log-form { margin-top:.25rem; }
-    @media (max-width: 1100px) { .columns, .detail-grid { grid-template-columns: 1fr; } }
+    .input { width:100%; padding:.8rem .95rem; border:1px solid #cbd5e1; border-radius:.75rem; box-sizing:border-box; }
+    @media (max-width: 720px) {
+      .list-item { flex-direction:column; align-items:stretch; }
+      .list-item-actions { justify-content:flex-end; }
+    }
   `]
 })
 export class DashboardTourExplorerComponent {
   facade = inject(DashboardFacadeService);
+  private dialog = inject(MatDialog);
+  private searchTimeout?: ReturnType<typeof setTimeout>;
 
-  async uploadImage(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) {
+  openNewTourDialog(): void {
+    this.dialog.open(NewTourDialogComponent, {
+      width: '42rem',
+      maxWidth: '96vw',
+      autoFocus: 'input',
+    });
+  }
+
+  async openEditTourDialog(id?: number): Promise<void> {
+    if (id == null) {
       return;
     }
 
-    await this.facade.uploadTourImage(file);
-    input.value = '';
+    await this.facade.editTour(id);
+
+    const ref = this.dialog.open(EditTourDialogComponent, {
+      width: '56rem',
+      maxWidth: '96vw',
+      maxHeight: '90vh',
+      autoFocus: 'input',
+    });
+
+    ref.afterClosed().subscribe(() => this.facade.closeTourEditor());
+  }
+
+  asSearchItem(tour: TourResponse | TourSearchItemDto): TourSearchItemDto | null {
+    return 'matchSummary' in tour ? tour : null;
+  }
+
+  onSearchChange(): void {
+    clearTimeout(this.searchTimeout);
+    this.searchTimeout = setTimeout(() => {
+      void this.facade.applySearch();
+    }, 300);
+  }
+
+  clearSearch(): void {
+    this.facade.searchTerm = '';
+    this.facade.searchResults = [];
+  }
+
+  async deleteTour(event: Event, id?: number): Promise<void> {
+    event.stopPropagation();
+    if (id == null) {
+      return;
+    }
+
+    await this.facade.deleteTourById(id);
   }
 }

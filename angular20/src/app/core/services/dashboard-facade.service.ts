@@ -26,6 +26,7 @@ export class DashboardFacadeService {
   searchResults: TourSearchItemDto[] = [];
   logs: TourLogResponse[] = [];
   selectedTourId: number | null = null;
+  editingTourId: number | null = null;
   selectedLogId: number | null = null;
   tourDraft: TourDraft = this.createBlankTourDraft();
   logDraft: LogDraft = this.createBlankLogDraft();
@@ -55,7 +56,6 @@ export class DashboardFacadeService {
 
     this.refreshStatus();
     await this.refreshTours();
-    await this.refreshSearch();
     this.bootstrapped = true;
   }
 
@@ -79,43 +79,55 @@ export class DashboardFacadeService {
     this.loadingTours = true;
     try {
       this.tours = await firstValueFrom(this.toursService.apiToursGet());
-      this.selectedTourId ??= this.tours[0]?.id ?? null;
-      this.loadTourDraftFromSelection();
-      await this.refreshLogs();
-      await this.syncPlannerWithSelection();
+
+      if (this.editingTourId != null) {
+        const stillExists = this.tours.some(tour => tour.id === this.editingTourId);
+        if (!stillExists) {
+          this.closeTourEditor();
+        } else {
+          this.selectedTourId = this.editingTourId;
+          this.loadTourDraftFromSelection();
+          await this.refreshLogs();
+          await this.syncPlannerWithSelection();
+        }
+      }
     } finally {
       this.loadingTours = false;
     }
   }
 
+  async applySearch(): Promise<void> {
+    const term = this.searchTerm.trim();
+    if (!term) {
+      this.searchResults = [];
+      return;
+    }
+
+    await this.refreshSearch();
+  }
+
   async refreshSearch(): Promise<void> {
+    const term = this.searchTerm.trim();
+    if (!term) {
+      this.searchResults = [];
+      return;
+    }
+
     this.loadingSearch = true;
     try {
-      const params = this.searchTerm.trim() ? new HttpParams().set('q', this.searchTerm.trim()) : undefined;
+      const params = new HttpParams().set('q', term);
       this.searchResults = await firstValueFrom(this.http.get<TourSearchItemDto[]>(`${environment.apiRoot}/api/tours/search`, { params }));
-
-      if (this.searchResults.length > 0 && !this.searchResults.some(x => x.id === this.selectedTourId)) {
-        this.selectedTourId = this.searchResults[0].id ?? null;
-        await this.refreshLogs();
-      }
-
-      if (this.searchResults.length === 0) {
-        this.logs = [];
-      }
-
-      await this.syncPlannerWithSelection();
     } finally {
       this.loadingSearch = false;
     }
   }
 
-  async uploadTourImage(file: File): Promise<void> {
+  async uploadTourImage(file: File): Promise<string> {
     const formData = new FormData();
     formData.append('file', file);
 
     const response = await firstValueFrom(this.http.post<{ image: string }>(`${environment.apiRoot}/api/tours/image`, formData));
-    this.tourDraft.image = response.image;
-    this.actionMessage = 'Uploaded tour image.';
+    return response.image;
   }
 
   async refreshLogs(): Promise<void> {
@@ -136,26 +148,50 @@ export class DashboardFacadeService {
     }
   }
 
-  selectTour(id?: number): void {
+  async editTour(id?: number): Promise<void> {
     if (id == null) {
       return;
     }
 
     this.selectedTourId = id;
+    this.editingTourId = id;
     this.selectedLogId = null;
     this.loadTourDraftFromSelection();
     this.logMessage = '';
-    void this.refreshLogs();
-    void this.syncPlannerWithSelection();
+    await this.refreshLogs();
+    await this.syncPlannerWithSelection();
+  }
+
+  closeTourEditor(): void {
+    this.editingTourId = null;
+    this.selectedTourId = null;
+    this.selectedLogId = null;
+    this.logs = [];
+    this.logDraft = this.createBlankLogDraft();
+    this.tourDraft = this.createBlankTourDraft();
+    this.logMessage = '';
   }
 
   newTour(): void {
-    this.selectedTourId = null;
-    this.tourDraft = this.createBlankTourDraft();
-    this.logs = [];
-    this.selectedLogId = null;
-    this.logDraft = this.createBlankLogDraft();
-    this.logMessage = '';
+    this.closeTourEditor();
+  }
+
+  async createTourFromDraft(draft: TourDraft): Promise<void> {
+    const payload: TourRequest = {
+      name: draft.name.trim(),
+      description: draft.description ?? null,
+      image: draft.image ?? null,
+      from: draft.from ?? null,
+      to: draft.to ?? null,
+      transportType: draft.transportType ?? null,
+      distanceKm: draft.distanceKm ?? 0,
+      estimatedTimeMinutes: draft.estimatedTimeMinutes ?? 0,
+    };
+
+    const created = await firstValueFrom(this.toursService.apiToursPost(payload));
+    this.actionMessage = `Tour ${created.name ?? 'neue Tour'} angelegt`;
+    await this.refreshTours();
+    await this.applySearch();
   }
 
   async saveTour(): Promise<void> {
@@ -173,10 +209,10 @@ export class DashboardFacadeService {
     if (this.tourDraft.id == null) {
       const created = await firstValueFrom(this.toursService.apiToursPost(payload));
       this.selectedTourId = created.id ?? null;
-      this.actionMessage = `Created tour ${created.name ?? 'new tour'}`;
+      this.actionMessage = `Tour ${created.name ?? 'neue Tour'} angelegt`;
     } else {
       await firstValueFrom(this.toursService.apiToursIdPut(this.tourDraft.id, payload));
-      this.actionMessage = `Updated tour ${this.tourDraft.name}`;
+      this.actionMessage = `Tour ${this.tourDraft.name} aktualisiert`;
     }
 
     await this.refreshTours();
@@ -187,10 +223,23 @@ export class DashboardFacadeService {
       return;
     }
 
-    await firstValueFrom(this.toursService.apiToursIdDelete(this.tourDraft.id));
-    this.actionMessage = `Deleted tour ${this.tourDraft.name}`;
-    this.newTour();
+    await this.deleteTourById(this.tourDraft.id);
+  }
+
+  async deleteTourById(id: number): Promise<void> {
+    const tour = this.tours.find(x => x.id === id)
+      ?? this.searchResults.find(x => x.id === id);
+    const tourName = tour && 'name' in tour ? tour.name : `#${id}`;
+
+    await firstValueFrom(this.toursService.apiToursIdDelete(id));
+    this.actionMessage = `Deleted tour ${tourName ?? id}`;
+
+    if (this.editingTourId === id) {
+      this.closeTourEditor();
+    }
+
     await this.refreshTours();
+    await this.applySearch();
   }
 
   selectLog(id?: number): void {
@@ -210,7 +259,7 @@ export class DashboardFacadeService {
 
     this.selectedLogId = null;
     this.logDraft = this.createBlankLogDraft();
-    this.logMessage = 'Create a new log for the selected tour.';
+    this.logMessage = 'Lege einen neuen Log für die ausgewählte Tour an.';
   }
 
   async saveLog(): Promise<void> {
@@ -232,7 +281,7 @@ export class DashboardFacadeService {
       if (this.logDraft.id == null) {
         const created = await firstValueFrom(this.tourLogsService.apiToursTourIdLogsPost(this.selectedTourId, payload));
         this.selectedLogId = created.id ?? null;
-        this.logMessage = `Created log ${created.id ?? 'new log'} for the selected tour.`;
+        this.logMessage = `Log ${created.id ?? 'neu'} für die Tour angelegt.`;
       } else {
         await firstValueFrom(this.tourLogsService.apiToursTourIdLogsIdPut(this.selectedTourId, this.logDraft.id, payload));
         this.logMessage = `Updated log ${this.logDraft.id}.`;
@@ -245,13 +294,25 @@ export class DashboardFacadeService {
   }
 
   async deleteLog(): Promise<void> {
-    if (this.selectedTourId == null || this.logDraft.id == null) {
+    if (this.logDraft.id == null) {
       return;
     }
 
-    await firstValueFrom(this.tourLogsService.apiToursTourIdLogsIdDelete(this.selectedTourId, this.logDraft.id));
-    this.logMessage = `Deleted log ${this.logDraft.id}.`;
-    this.newLog();
+    await this.deleteLogById(this.logDraft.id);
+  }
+
+  async deleteLogById(logId: number): Promise<void> {
+    if (this.selectedTourId == null) {
+      return;
+    }
+
+    await firstValueFrom(this.tourLogsService.apiToursTourIdLogsIdDelete(this.selectedTourId, logId));
+    this.logMessage = `Deleted log ${logId}.`;
+
+    if (this.selectedLogId === logId || this.logDraft.id === logId) {
+      this.newLog();
+    }
+
     await this.refreshLogs();
   }
 
@@ -291,7 +352,7 @@ export class DashboardFacadeService {
     const response = await firstValueFrom(this.http.post<{ importedTours: number }>(`${environment.apiRoot}/api/tours/import`, payload));
     this.importMessage = `Imported ${response.importedTours} tour(s).`;
     await this.refreshTours();
-    await this.refreshSearch();
+    await this.applySearch();
   }
 
   useSampleImport(): void {
@@ -322,9 +383,9 @@ export class DashboardFacadeService {
       estimatedTimeMinutes: plan?.estimatedTimeMinutes ?? 60,
     } as TourRequest));
 
-    this.actionMessage = `Created tour ${created.name ?? 'new tour'}`;
+    this.actionMessage = `Tour ${created.name ?? 'neue Tour'} angelegt`;
     await this.refreshTours();
-    await this.refreshSearch();
+    await this.applySearch();
     if (created.id == null) {
       throw new Error('Backend did not return a tour id.');
     }
@@ -349,9 +410,9 @@ export class DashboardFacadeService {
       rating: 5,
     } as TourLogRequest));
 
-    this.actionMessage = `Created log ${created.id ?? 'new log'}`;
+    this.actionMessage = `Log ${created.id ?? 'neu'} angelegt`;
     await this.refreshLogs();
-    await this.refreshSearch();
+    await this.applySearch();
   }
 
   private async planRouteForCreation(): Promise<TourPlanDto | null> {
@@ -446,8 +507,20 @@ export class DashboardFacadeService {
     };
   }
 
+  get displayedTours(): Array<TourResponse | TourSearchItemDto> {
+    return this.isSearching ? this.searchResults : this.tours;
+  }
+
+  get isSearching(): boolean {
+    return this.searchTerm.trim().length > 0;
+  }
+
+  get isEditingTour(): boolean {
+    return this.editingTourId != null;
+  }
+
   get hasSelectedTour(): boolean {
-    return this.selectedTourId != null;
+    return this.editingTourId != null;
   }
 
   private friendlyLogError(err: unknown): string {
