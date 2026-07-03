@@ -3,6 +3,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import { map } from 'rxjs';
 import { DashboardFacadeService } from '../../core/services/dashboard-facade.service';
+import { Co2CalculatorService } from '../../core/services/co2-calculator.service';
 import { DashboardTourExplorerComponent } from '../../test-pages/test-general/dashboard-tour-explorer.component';
 import { DashboardRoutePlannerComponent } from '../../test-pages/test-general/dashboard-route-planner.component';
 import { DashboardImportExportComponent } from '../../test-pages/test-general/dashboard-import-export.component';
@@ -39,6 +40,7 @@ import { DashboardImportExportComponent } from '../../test-pages/test-general/da
           <div class="stats">
             <div><strong>{{ facade.tours.length }}</strong><span>Touren</span></div>
             <div><strong>{{ facade.logs.length }}</strong><span>Logs</span></div>
+            <div><strong>{{ totalCo2Saving() }}</strong><span>kg CO₂ gespart</span></div>
             <div><strong>{{ facade.searchResults.length }}</strong><span>Suchtreffer</span></div>
           </div>
         </section>
@@ -55,6 +57,13 @@ import { DashboardImportExportComponent } from '../../test-pages/test-general/da
           <article class="overview-card">
             <h3>Import/Export</h3>
             <p>Tour-Daten als JSON exportieren oder aus einer JSON-Datei importieren.</p>
+          </article>
+          <article class="overview-card co2-card">
+            <h3>CO₂-Einsparung</h3>
+            <p>
+              Unique Feature: Zeigt, wie viel CO₂ du gegenüber dem Auto sparst
+              (0,21 kg/km), berechnet aus Distanz und Transportmittel.
+            </p>
           </article>
         </section>
       }
@@ -90,9 +99,9 @@ import { DashboardImportExportComponent } from '../../test-pages/test-general/da
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0.75rem;
-      min-width: min(24rem, 100%);
+      min-width: min(28rem, 100%);
     }
 
     .stats div {
@@ -108,8 +117,13 @@ import { DashboardImportExportComponent } from '../../test-pages/test-general/da
 
     .overview-grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 0.85rem;
+    }
+
+    .co2-card {
+      border-color: #a7f3d0;
+      background: linear-gradient(180deg, #f0fdf4, #fff);
     }
 
     .overview-card {
@@ -128,7 +142,12 @@ import { DashboardImportExportComponent } from '../../test-pages/test-general/da
 })
 export class DashboardPageComponent implements OnInit {
   facade = inject(DashboardFacadeService);
+  private co2Calculator = inject(Co2CalculatorService);
   private route = inject(ActivatedRoute);
+
+  totalCo2Saving(): number {
+    return this.co2Calculator.calculateTotalSaving(this.facade.tours);
+  }
 
   // Gleiche Fragment-Logik wie in der Topbar: ein Bereich, eine Ansicht.
   activeSection = toSignal(

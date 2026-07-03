@@ -5,11 +5,12 @@ import * as L from 'leaflet';
 import { MatButtonModule } from '@angular/material/button';
 import { DashboardFacadeService } from '../../core/services/dashboard-facade.service';
 import { TourRoutePointDto } from '../../core/models/dashboard.types';
+import { Co2BadgeComponent } from '../../shared/components/co2-badge/co2-badge.component';
 
 @Component({
   selector: 'app-dashboard-route-planner',
   standalone: true,
-  imports: [FormsModule, NgIf, MatButtonModule],
+  imports: [FormsModule, NgIf, MatButtonModule, Co2BadgeComponent],
   template: `
     <section class="panel">
       <div class="panel-title-row">
@@ -35,6 +36,10 @@ import { TourRoutePointDto } from '../../core/models/dashboard.types';
           <div><strong>Distance:</strong> {{ facade.plannedRoute.distanceKm }} km</div>
           <div><strong>Time:</strong> {{ facade.plannedRoute.estimatedTimeMinutes }} min</div>
           <div><strong>Source:</strong> {{ facade.plannedRoute.source }}</div>
+          <app-co2-badge
+            [distanceKm]="facade.plannedRoute.distanceKm"
+            [transportType]="facade.routeTransportType"
+          />
         </div>
       </div>
     </section>

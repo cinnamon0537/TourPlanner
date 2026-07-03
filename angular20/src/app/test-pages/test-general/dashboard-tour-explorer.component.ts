@@ -8,12 +8,13 @@ import { EditTourDialogComponent } from '../../components/edit-tour-dialog/edit-
 import { NewTourDialogComponent } from '../../components/new-tour-dialog/new-tour-dialog.component';
 import { DashboardFacadeService } from '../../core/services/dashboard-facade.service';
 import { TourSearchItemDto } from '../../core/models/dashboard.types';
+import { Co2BadgeComponent } from '../../shared/components/co2-badge/co2-badge.component';
 import { TourResponse } from '../../swagger';
 
 @Component({
   selector: 'app-dashboard-tour-explorer',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, MatButtonModule, MatIconModule],
+  imports: [NgFor, NgIf, FormsModule, MatButtonModule, MatIconModule, Co2BadgeComponent],
   template: `
     <section class="panel">
       <div class="panel-title-row">
@@ -70,6 +71,11 @@ import { TourResponse } from '../../swagger';
             <div class="list-item-content">
               <strong>{{ tour.name }}</strong>
               <small>{{ tour.from || '?' }} → {{ tour.to || '?' }}</small>
+              <app-co2-badge
+                *ngIf="tour.distanceKm"
+                [distanceKm]="tour.distanceKm!"
+                [transportType]="tour.transportType || 'walking'"
+              />
               <small class="match" *ngIf="facade.isSearching && asSearchItem(tour)?.matchSummary">
                 {{ asSearchItem(tour)?.matchSummary }}
               </small>
