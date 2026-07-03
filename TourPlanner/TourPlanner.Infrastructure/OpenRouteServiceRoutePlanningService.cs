@@ -41,10 +41,13 @@ public class OpenRouteServiceRoutePlanningService : IRoutePlanningService
   {
     var profile = NormalizeProfile(request.TransportType);
     var url = $"{_settings.BaseUrl.TrimEnd('/')}/v2/directions/{profile}/geojson";
-    using var response = await _httpClient.PostAsync(url, new StringContent(JsonSerializer.Serialize(new
+    using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
+    httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey);
+    httpRequest.Content = new StringContent(JsonSerializer.Serialize(new
     {
       coordinates = new[] { new[] { from.Longitude, from.Latitude }, new[] { to.Longitude, to.Latitude } }
-    }), System.Text.Encoding.UTF8, "application/json"), cancellationToken);
+    }), System.Text.Encoding.UTF8, "application/json");
+    using var response = await _httpClient.SendAsync(httpRequest, cancellationToken);
 
     response.EnsureSuccessStatusCode();
     using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
