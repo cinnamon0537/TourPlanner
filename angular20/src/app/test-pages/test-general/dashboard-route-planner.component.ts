@@ -1,6 +1,6 @@
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { NgIf } from '@angular/common';
+import { NgFor, NgIf } from '@angular/common';
 import * as L from 'leaflet';
 import { MatButtonModule } from '@angular/material/button';
 import { DashboardFacadeService } from '../../core/services/dashboard-facade.service';
@@ -10,7 +10,7 @@ import { Co2BadgeComponent } from '../../shared/components/co2-badge/co2-badge.c
 @Component({
   selector: 'app-dashboard-route-planner',
   standalone: true,
-  imports: [FormsModule, NgIf, MatButtonModule, Co2BadgeComponent],
+  imports: [FormsModule, NgFor, NgIf, MatButtonModule, Co2BadgeComponent],
   template: `
     <section class="panel">
       <div class="panel-title-row">
@@ -24,7 +24,12 @@ import { Co2BadgeComponent } from '../../shared/components/co2-badge/co2-badge.c
       <div class="planner-grid">
         <label><span>From</span><input class="input" type="text" [(ngModel)]="facade.routeFrom" /></label>
         <label><span>To</span><input class="input" type="text" [(ngModel)]="facade.routeTo" /></label>
-        <label><span>Transport</span><input class="input" type="text" [(ngModel)]="facade.routeTransportType" /></label>
+        <label>
+          <span>Transport</span>
+          <select class="input" [(ngModel)]="facade.routeTransportType">
+            <option *ngFor="let option of transportOptions" [value]="option.value">{{ option.label }}</option>
+          </select>
+        </label>
       </div>
 
       <p class="message" *ngIf="facade.routeLoading">Planning route...</p>
@@ -60,6 +65,13 @@ import { Co2BadgeComponent } from '../../shared/components/co2-badge/co2-badge.c
 })
 export class DashboardRoutePlannerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
+
+  readonly transportOptions = [
+    { value: 'walking', label: 'Walking' },
+    { value: 'bike', label: 'Bike' },
+    { value: 'hike', label: 'Hike' },
+    { value: 'car', label: 'Car' },
+  ] as const;
 
   facade = inject(DashboardFacadeService);
   private map?: L.Map;

@@ -106,6 +106,7 @@ public class OpenRouteServiceRoutePlanningService : IRoutePlanningService
     var profile = NormalizeProfile(request.TransportType) switch
     {
       "cycling-regular" => "bike",
+      "driving-car" => "car",
       _ => "foot",
     };
 
@@ -130,6 +131,7 @@ public class OpenRouteServiceRoutePlanningService : IRoutePlanningService
   private static string NormalizeProfile(string transportType)
     => transportType.Trim().ToLowerInvariant() switch
     {
+      "car" or "auto" or "driving" => "driving-car",
       "bike" or "bicycle" or "cycling" => "cycling-regular",
       "run" or "running" => "foot-hiking",
       _ => "foot-walking",
@@ -149,6 +151,7 @@ public class OpenRouteServiceRoutePlanningService : IRoutePlanningService
     var distanceKm = Math.Round(HaversineKm(from, to), 2);
     var speedKmh = NormalizeProfile(request.TransportType) switch
     {
+      "driving-car" => 80.0,
       "cycling-regular" => 18.0,
       "foot-hiking" => 5.0,
       _ => 4.5,
