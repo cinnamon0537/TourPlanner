@@ -123,7 +123,7 @@ export class LandingPageComponent {
 
   private extractValidationMessage(error: unknown): string {
     if (error && typeof error === 'object' && 'errors' in error) {
-      const errors = (error as Record<string, unknown>).errors;
+      const errors = (error as Record<string, unknown>)['errors'];
       if (errors && typeof errors === 'object') {
         const messages = Object.values(errors as Record<string, string[]>)
           .flat()
