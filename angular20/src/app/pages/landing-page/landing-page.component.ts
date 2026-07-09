@@ -46,10 +46,10 @@ import { AuthFacadeService } from '../../core/services/auth-facade.service';
           </label>
         }
 
-        <p class="message" *ngIf="message">{{ message }}</p>
+        <p class="message" [class.message-success]="messageType === 'success'" *ngIf="message">{{ message }}</p>
 
         <div class="auth-actions">
-          <button mat-flat-button color="primary" type="button" (click)="submit()">{{ mode === 'login' ? 'Login' : 'Register' }}</button>
+          <button mat-flat-button color="primary" type="button" [disabled]="isSubmitting" (click)="submit()">{{ mode === 'login' ? 'Login' : 'Register' }}</button>
         </div>
       </article>
     </section>
@@ -67,6 +67,7 @@ import { AuthFacadeService } from '../../core/services/auth-facade.service';
     label { display:grid; gap:.35rem; color:#334155; }
     input { padding:.8rem .95rem; border:1px solid #cbd5e1; border-radius:.75rem; }
     .message { margin:0; color:#b91c1c; background:#fef2f2; border:1px solid #fecaca; padding:.7rem .85rem; border-radius:.75rem; }
+    .message-success { color:#166534; background:#f0fdf4; border:1px solid #bbf7d0; }
     .auth-actions { display:flex; justify-content:flex-end; }
   `]
 })
@@ -80,8 +81,11 @@ export class LandingPageComponent {
   identifier = 'frontend-demo';
   password = 'Secret123!';
   message = '';
+  messageType: 'error' | 'success' = 'error';
+  isSubmitting = false;
 
   async submit(): Promise<void> {
+    this.isSubmitting = true;
     try {
       if (this.mode === 'login') {
         await this.auth.login(this.identifier, this.password);
@@ -89,14 +93,20 @@ export class LandingPageComponent {
         await this.auth.register(this.userName, this.email, this.password);
       }
 
+      this.message = `Successfully ${this.mode === 'login' ? 'logged in' : 'registered'} as ${this.mode === 'login' ? this.identifier : this.userName}.`;
+      this.messageType = 'success';
+      await new Promise(r => setTimeout(r, 800));
       await this.router.navigateByUrl('/dashboard');
     } catch (err) {
       this.message = this.friendlyError(err);
+      this.messageType = 'error';
+      this.isSubmitting = false;
     }
   }
 
   clearMessage(): void {
     this.message = '';
+    this.messageType = 'error';
   }
 
   private friendlyError(err: unknown): string {
