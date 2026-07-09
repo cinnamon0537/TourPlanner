@@ -112,11 +112,25 @@ export class LandingPageComponent {
   private friendlyError(err: unknown): string {
     if (err instanceof HttpErrorResponse) {
       if (err.status === 0) return 'Cannot reach the backend right now.';
+      if (err.status === 400) return this.extractValidationMessage(err.error);
       if (err.status === 401) return 'Wrong login details. Check your username/email and password.';
       if (err.status === 409) return 'That account already exists. Try logging in instead.';
       if (err.status >= 500) return 'The server had a problem. Please try again.';
     }
 
     return 'Something went wrong. Please try again.';
+  }
+
+  private extractValidationMessage(error: unknown): string {
+    if (error && typeof error === 'object' && 'errors' in error) {
+      const errors = (error as Record<string, unknown>).errors;
+      if (errors && typeof errors === 'object') {
+        const messages = Object.values(errors as Record<string, string[]>)
+          .flat()
+          .filter(Boolean);
+        if (messages.length > 0) return messages.join(' ');
+      }
+    }
+    return 'Please check your input and try again.';
   }
 }
